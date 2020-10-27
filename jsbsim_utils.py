@@ -31,6 +31,16 @@ class SandBox:
         shutil.rmtree(self._tmpdir)
 
 
+class AttributeFormatter:
+    ILLEGAL_CHARS = '\-/.'
+    TRANSLATE_TO = '_' * len(ILLEGAL_CHARS)
+    TRANSLATION_TABLE = str.maketrans(ILLEGAL_CHARS, TRANSLATE_TO)
+
+    @staticmethod
+    def translate(string: str):
+        return string.translate(AttributeFormatter.TRANSLATION_TABLE)
+
+
 def create_fdm(sandbox, pm=None):
     _fdm = jsbsim.FGFDMExec(os.path.join(sandbox(), ''), pm)
     print('FDM located at:', os.path.join(sandbox(), ''))

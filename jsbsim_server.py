@@ -1,8 +1,11 @@
 from jsbsim_utils import SandBox, create_fdm
+import jsbsim_properties as prp
+from typing import Dict, Union
 import threading
 import time
 import telnetlib
 import os
+import time
 
 
 class JSBSimThread(threading.Thread):
@@ -14,6 +17,12 @@ class JSBSimThread(threading.Thread):
         self._cond = cond
         self._end_time = end_time
         self._t0 = t0
+
+    def __getitem__(self, prop: Union[prp.BoundedProperty, prp.Property]) -> float:
+        return self._fdm[prop.name]
+
+    def __setitem__(self, prop: Union[prp.BoundedProperty, prp.Property], value) -> None:
+        self._fdm[prop.name] = value
 
     def __del_(self):
         del self._fdm
@@ -72,11 +81,19 @@ class TelnetServer:
 
     def get_property_value(self, property):
         msg = self.send_command("get "+property).split('\n')
-        return float(msg[0].split('=')[1])
+        msg = float(msg[0].split('=')[1])
+        return msg
+
+    def get_property_stream(self, property):
+        prop = self.thread[property]
+        return prop
 
     def set_property_value(self, property):
         self.send_command("set "+property).split('\n')
         return
+
+    def set_property_stream(self, property, value):
+        self.thread[property] = value
 
     def print_info(self):
         print(self.send_command("info"))
@@ -86,8 +103,11 @@ class TelnetServer:
         print(self.send_command(command))
         return
 
+    def iterate_n(self, n):
+        self.cond.acquire()
+        self.tn.write("{}\n".format('iterate '+str(n)).encode())
+
     def wait(self, seconds):
-        self.thread.join(seconds)
         self.thread.join(seconds)
 
     def set_real_time(self, rt):
