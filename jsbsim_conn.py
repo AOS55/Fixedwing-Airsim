@@ -1,6 +1,7 @@
 from jsbsim_server import run_server
 import jsbsim_properties as prp
 import airsim
+import math
 
 
 class Simulator:
@@ -17,9 +18,9 @@ class Simulator:
         return position
 
     def stream_orientation(self):
-        yaw = self.tn.get_property_stream(prp.heading_deg)
         pitch = self.tn.get_property_stream(prp.pitch_rad)
         roll = self.tn.get_property_stream(prp.roll_rad)
+        yaw = self.tn.get_property_stream(prp.heading_deg) * (math.pi / 180)
         orientation = [pitch, roll, yaw]
         return orientation
 
@@ -61,3 +62,32 @@ class Simulator:
     def advance(self):
         self.tn.send_command('iterate 1')
         return
+
+
+class Autopilot(Simulator):
+    def __init__(self):
+        super().__init__()
+
+    def heading_hold(self, hdg):
+        self.tn.set_property_stream(prp.heading_switch, 1)
+        self.tn.set_property_stream(prp.heading_des, hdg)
+
+    def heading_hold_off(self):
+        self.tn.set_property_stream(prp.heading_switch, 0)
+
+    def level_hold(self, level):
+        self.tn.set_property_stream(prp.level_switch, 1)
+        self.tn.set_property_stream(prp.level_des, level)
+
+    def level_hold_off(self):
+        self.tn.set_property_stream(prp.level_switch, 0)
+
+    def trim_on(self):
+        self.tn.set_property_stream(prp.trim_switch, 1)
+
+    def trim_off(self):
+        self.tn.set_property_stream(prp.trim_switch, 0)
+
+
+
+

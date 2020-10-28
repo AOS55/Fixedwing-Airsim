@@ -104,7 +104,6 @@ class TelnetServer:
         return
 
     def iterate_n(self, n):
-        self.cond.acquire()
         self.tn.write("{}\n".format('iterate '+str(n)).encode())
 
     def wait(self, seconds):
@@ -112,6 +111,30 @@ class TelnetServer:
 
     def set_real_time(self, rt):
         self.thread.realTime = rt
+
+
+# def initialise(sandbox, dt: float, model_name: str):
+#     fdm = create_fdm(sandbox)
+#     ic_file = 'basic_ic.xml'
+#     script_file = 'basic_io.xml'
+#     ic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ic_file)
+#     script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), script_file)
+#     fdm.load_ic(ic_path, useStoredPath=False)
+#     fdm.load_model(model_name)
+#     fdm.load_script(script_path)
+#     fdm.set_dt(dt)
+#     fdm.run_ic()
+#     fdm.hold()
+#     return fdm
+#
+#
+# def run_server(aircraft='c172x'):
+#     sandbox = SandBox()
+#     # Change working directory to be inside the temp folder
+#     os.chdir(sandbox())
+#     fdm = initialise(sandbox, 0.0083333, aircraft)
+#     tn = TelnetServer(fdm, 200., 1137)
+#     return tn
 
 
 def run_server(script='c1722.xml'):
@@ -124,7 +147,7 @@ def run_server(script='c1722.xml'):
     fdm.load_script(os.path.abspath(script_path))
     fdm.run_ic()
     fdm.hold()
-    tn = TelnetServer(fdm, 5., 1137)
+    tn = TelnetServer(fdm, 200., 1137)
     return tn
     # tn.print_info()
     # print(tn.get_property_value('inertia/weight-lbs'))

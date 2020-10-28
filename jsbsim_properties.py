@@ -2,7 +2,9 @@ import math
 import collections
 from jsbsim_utils import AttributeFormatter
 
+
 """Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/properties.py by Gordon Rennie"""
+
 
 class BoundedProperty(collections.namedtuple('BoundedProperty', ['name', 'description', 'min', 'max'])):
     def get_legal_name(self):
@@ -63,11 +65,16 @@ throttle_1_cmd = BoundedProperty('fcs/throttle-cmd-norm[1]', 'throttle 1 command
 mixture_1_cmd = BoundedProperty('fcs/mixture-cmd-norm[1]', 'engine mixture 1 setting, normalised', 0., 1.)
 gear_all_cmd = BoundedProperty('gear/gear-cmd-norm', 'all landing gear commanded position, normalised', 0, 1)
 
-# autopilot command
+# autopilot commands
+heading_des = BoundedProperty('ap/heading_setpoint', 'desired heading [deg]', -180, 180)
+level_des = BoundedProperty('ap/altitude_setpoint', 'desired altitude [ft]', -1400, 85000)
+heading_switch = BoundedProperty('ap/heading_hold', 'engage heading mode [bool]', 0, 1)
+level_switch = BoundedProperty('ap/altitude_hold', 'engage alt hold [bool]', 0, 1)
 
 # simulation
 sim_dt = Property('simulation/dt', 'JSBSim simulation timestep [s]')
 sim_time_s = Property('simulation/sim-time-sec', 'Simulation time [s]')
+trim_switch = BoundedProperty('simulation/trim_switch', 'engage trimming [bool]', 0, 1)
 
 # initial conditions
 initial_altitude_ft = Property('ic/h-sl-ft', 'initial altitude MSL [ft]')

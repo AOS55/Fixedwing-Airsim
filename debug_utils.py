@@ -2,9 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import jsbsim_properties as prp
 from jsbsim_conn import Simulator
+import math
 
 
-class DebugGraphs():
+class DebugGraphs:
     def __init__(self, sim):
         self.sim = sim
         self.time = []
@@ -25,13 +26,14 @@ class DebugGraphs():
 
     def get_angle_data(self):
         self.yaw.append(self.sim.tn.get_property_stream(prp.heading_deg))
-        self.pitch.append(self.sim.tn.get_property_stream(prp.pitch_rad))
-        self.roll.append(self.sim.tn.get_property_stream(prp.roll_rad))
+        self.pitch.append(self.sim.tn.get_property_stream(prp.pitch_rad) * (180 / math.pi))
+        self.roll.append(self.sim.tn.get_property_stream(prp.roll_rad) * (180 / math.pi))
 
     def basic_plot(self):
+        print(self.time)
         fig, ax = plt.subplots()
-        ax.plot(self.time, self.roll)
-        ax.plot(self.time, self.pitch)
         ax.plot(self.time, self.yaw)
+        ax.plot(self.time, self.pitch)
+        ax.plot(self.time, self.roll)
         plt.show()
 
