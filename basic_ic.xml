@@ -3,15 +3,15 @@
   <!--
     Basic set of initial conditions at 300 ft with engines running.
   -->
-  <ubody unit="FT/SEC">  328.0  </ubody> <!-- approx. 100 m/s -->
+  <ubody unit="FT/SEC">    50.0 </ubody>  <!-- approx. 20 KIAS -->
   <vbody unit="FT/SEC">    0.0  </vbody>
   <wbody unit="FT/SEC">    0.0  </wbody>
   <longitude unit="DEG">   2.6030  </longitude> <!-- University of Bristol -->
-  <latitude unit="DEG">   51.4584  </latitude>
-  <phi unit="DEG">         0.0  </phi>
-  <theta unit="DEG">       0.0  </theta>
-  <psi unit="DEG">         0.0  </psi>
-  <altitude unit="FT">     300 </altitude>
+  <latitude unit="DEG">    51.4584  </latitude>
+  <phi unit="DEG">         0.0  </phi>  <!-- roll -->
+  <theta unit="DEG">       0.0  </theta>  <!-- pitch -->
+  <psi unit="DEG">         0.0  </psi>  <!-- yaw -->
+  <altitude unit="FT">     1000 </altitude>
   <elevation unit="FT">    0.00000001  </elevation> <!-- bug in JSBSim makes 0 cause NaNs -->
   <running>               -1 </running> <!-- starts all engines -->
 </initialize>
