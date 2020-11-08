@@ -6,8 +6,8 @@
   <ubody unit="FT/SEC">    50.0 </ubody>  <!-- approx. 20 KIAS -->
   <vbody unit="FT/SEC">    0.0  </vbody>
   <wbody unit="FT/SEC">    0.0  </wbody>
-  <longitude unit="DEG">   2.6030  </longitude> <!-- University of Bristol -->
-  <latitude unit="DEG">    51.4584  </latitude>
+  <longitude unit="DEG">   0.0 </longitude> <!-- University of Bristol (no more) -->
+  <latitude unit="DEG">    0.0  </latitude>
   <phi unit="DEG">         0.0  </phi>  <!-- roll -->
   <theta unit="DEG">       0.0  </theta>  <!-- pitch -->
   <psi unit="DEG">         0.0  </psi>  <!-- yaw -->

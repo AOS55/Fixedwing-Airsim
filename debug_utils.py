@@ -10,6 +10,8 @@ class DebugGraphs:
         self.time = []
         self.lat = []
         self.long = []
+        self.lat_abs = []
+        self.long_abs = []
         self.alt = []
         self.yaw = []
         self.pitch = []
@@ -48,6 +50,10 @@ class DebugGraphs:
         self.lat.append(self.sim.get_local_position()[0])
         self.long.append(self.sim.get_local_position()[1])
         self.alt.append(self.sim.get_local_position()[2])
+
+    def get_abs_pos_data(self):
+        self.lat_abs.append(self.sim[prp.lat_geod_deg])
+        self.long_abs.append(self.sim[prp.lng_geoc_deg])
 
     def get_angle_data(self):
         self.pitch.append(self.sim.get_local_orientation()[0])
@@ -124,15 +130,29 @@ class DebugGraphs:
         # ax.plot(self.time, self.rudder_cmd)
         # ax.plot(self.time, self.aileron_left)
         # ax.plot(self.time, self.aileron_right)
-        # ax.plot(self.time, self.aileron_combined)
-        # ax.plot(self.time, self.roll)
+        ax.plot(self.time, self.aileron_combined)
+        ax.plot(self.time, self.roll)
         # ax.plot(self.time, self.elevator)
         # ax.plot(self.time, self.throttle)
         # ax.plot(self.time, self.rudder)
         # ax.plot(self.time, self.airspeed)
         # ax.plot(self.time, self.alt)
-        ax.plot(self.time, self.vs)
+        # ax.plot(self.time, self.vs)
+        # ax.plot(self.time, self.lat)
+        # ax.plot(self.time, self.long)
+        ax.plot(self.time, self.yaw)
         plt.show()
+
+    def trace_plot(self):
+        fig, ax = plt.subplots()
+        ax.plot(self.lat, self.long)
+        plt.show()
+
+    def trace_plot_abs(self):
+        fig, ax = plt.subplots()
+        ax.plot(self.long_abs, self.lat_abs)
+        plt.show()
+
 
 
 class DebugFDM:

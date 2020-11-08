@@ -3,7 +3,9 @@ import collections
 from jsbsim_utils import AttributeFormatter
 
 
-"""Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/properties.py by Gordon Rennie"""
+"""
+Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/properties.py by Gordon Rennie
+"""
 
 
 class BoundedProperty(collections.namedtuple('BoundedProperty', ['name', 'description', 'min', 'max'])):

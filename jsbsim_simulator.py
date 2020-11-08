@@ -11,6 +11,68 @@ import math
 
 
 class Simulation:
+    """
+    The core JSBSim simulation class
+
+    ...
+
+    Attributes
+    ----------
+    fdm : object
+        an object that is an instance of the JSBSim's flight dynamic model
+    sim_dt : var
+        the simulation update rate
+    aircraft : Aircraft
+        the aircraft type used, cessna172P by default
+    init_conditions : float
+        the simulations initial conditions None by default as in basic_ic.xml
+    debug_level : int
+        the level of debugging sent to the terminal by jsbsim
+        - 0 is limited
+        - 1 is core values
+        - 2 gives all calls within the C++ source code
+    wall_clock_dt : bool
+        activates a switch to speed up or slow down the simulation
+    client : object
+        connection to airsim for visualization
+
+    Methods
+    ------
+    load_model(model_name)
+        Ensure the JSBSim flight dynamic model is found and loaded in correctly
+    get_aircraft()
+        returns the aircraft the simulator was initialized with
+    get_loaded_model_name()
+        returns the name of the fdm model used
+    initialise(dt: float, model_name: str, init_conditions: Dict['prp.Property', float] = None)
+        initializes an instance of JSBSim
+    set_custom_initial_conditions(init_conditions: Dict['prp.Property', float] = None)
+        allows for initial conditions different to basic_ic.xml to be used
+    reinitialise(self, init_conditions: Dict['prp.Property', float] = None)
+        restart the simulation with default initial conditions
+    run()
+        run JSBSim at the sim_dt rate
+    get_time()
+        returns the current JSBSim time
+    get_local_position()
+        returns the lat, long and altitude of JSBSim
+    get_local_orientation()
+        returns the euler angle orientation (roll, pitch, yaw) of JSBSim
+    airsim_connect()
+        connect to a running instance of airsim
+    update_airsim()
+        updates the airsim client with the JSBSim calculated pose information
+    close()
+        closes the JSBSim fdm instance
+    start_engines()
+        starts all available aircraft engines
+    set_throttle_mixture_controls()
+        sets aircraft mixture and throttle controls
+    raise_landing_gear()
+        raises the aircraft's landing gear
+    """
+
+
     encoding = 'utf-8'
     ROOT_DIR = os.path.abspath('/home/quessy/Dev/jsbsim')
 
@@ -76,7 +138,6 @@ class Simulation:
                 self[prop] = value
 
     def reinitialise(self, init_conditions: Dict['prp.Property', float] = None) -> None:
-
         self.set_custom_initial_conditions(init_conditions=init_conditions)
         no_output_reset_mode = 0
         self.fdm.reset_to_initial_conditions(no_output_reset_mode)
