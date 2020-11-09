@@ -4,6 +4,7 @@ from debug_utils import *
 import jsbsim_properties as prp
 from simple_pid import PID
 from autopilot import X8Autopilot
+from Navigation import WindEstimation
 
 
 def main():
@@ -11,6 +12,7 @@ def main():
     ap = X8Autopilot(sim)
     graph = DebugGraphs(sim)
     debug_aero = DebugFDM(sim)
+    wind_estimate = WindEstimation(sim)
     flag1 = False
     flag2 = False
     flag3 = False
@@ -26,12 +28,13 @@ def main():
             # sim[prp.throttle_cmd] = 0.0
             # ap.vs_hold_w_throttle(500)
             ap.airspeed_hold_w_throttle(50.0)
+            circuit_profile = ((0, 0, 1000), (4000, 0, 1000), (4000, 4000, 1000), (0, 4000, 1000), (0, 0, 20),
+                               (4000, 0, 20), (4000, 4000, 20))
             # if not over:
-            circuit_profile = ((0, 0), (4000, 0), (4000, 4000), (0, 4000), (0, 0), (4000, 0), (4000, 4000))
-            #     over = ap.track_to_profile(circuit_profile)
-            point = (500, 500)
+            #      over = ap.track_to_profile(circuit_profile)
             if not flag1:
-                flag1 = ap.fillet_path(circuit_profile, 500)
+                # wind_estimate.wind_average(n=5)
+                flag1 = ap.arc_path(circuit_profile, 700)
 
             # if not flag1:
             #     flag1 = ap.track_to_target(1000, 1, 1000)

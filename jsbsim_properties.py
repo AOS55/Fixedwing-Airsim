@@ -4,7 +4,8 @@ from jsbsim_utils import AttributeFormatter
 
 
 """
-Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/properties.py by Gordon Rennie
+Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/properties.py by Gordon Rennie, defines parameters
+and bounds properties to ensure out-of-bound values are not assigned to JSBSim properties
 """
 
 

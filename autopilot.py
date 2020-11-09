@@ -49,7 +49,6 @@ class C172Autopilot:
 
     def level_hold(self, level):
         error = level - self.sim[prp.altitude_sl_ft]
-        # print('level hold error: ', error)
         # Limit climb error to a maximum of 100'
         if error > 100:
             error = 100
@@ -57,7 +56,6 @@ class C172Autopilot:
             error = -100
         # Convert error to percentage of maximum
         error = error/100
-        # print('percentage error: ', error)
         # Lag desired climb rate (for stability) as a single integrator
         # c = 1.0
         # vs_lag = PID(0, c, 0)
@@ -136,7 +134,7 @@ class X8Autopilot:
 
     def airspeed_hold_w_throttle(self, airspeed_comm):
         # Appears fine with simple proportional controller, light airspeed instability at high speed (100kts)
-        error = airspeed_comm - (self.sim[prp.airspeed] * 0.5925)
+        error = airspeed_comm - (self.sim[prp.airspeed] * 0.5925) # set airspeed in KTAS
         kp = 0.022
         ki = 0.0
         kd = 0.0
@@ -201,7 +199,6 @@ class X8Autopilot:
                 bearing = bearing + 360
             distance = self.nav.distance()
             off_tk_angle = self.track_bearing - bearing
-            x_track = self.nav.x_track_error(distance, off_tk_angle)
             distance_to_go = self.nav.distance_to_go(distance, off_tk_angle)
             # use a controller to regulate the closure rate relative to the track
             error = off_tk_angle * distance_to_go
@@ -232,7 +229,6 @@ class X8Autopilot:
             # initialize target and track
             self.nav = LocalNavigation(self.sim)
             self.nav.set_local_target(point_b[0] - point_a[0], point_b[1] - point_a[1])
-            print(point_b[0] - point_a[0], point_b[1] - point_a[1])
             self.track_bearing = self.nav.bearing() * 180.0 / math.pi
             if self.track_bearing < 0:
                 self.track_bearing = self.track_bearing + 360.0
@@ -302,11 +298,11 @@ class X8Autopilot:
             self.heading_hold(heading)
             print(distance)
 
-    def fillet_path(self, profile, radius):
+    def arc_path(self, profile, radius):
         #  Not sure why the fillet points can't get round final corner
         if self.nav is None:
             # print(self.state)
-            print('Changing points !!!!!!!!!!!!!!!')
+            print('Changing points !!!')
             self.track_id = self.track_id + 1
             print(self.track_id)
             if self.track_id == len(profile) - 2:
@@ -316,46 +312,49 @@ class X8Autopilot:
             point_a = profile[self.track_id]
             point_b = profile[self.track_id + 1]
             point_c = profile[self.track_id + 2]
-            # Initialize track inbound to b
             self.nav = LocalNavigation(self.sim)
-            self.nav.set_local_target(point_b[0] - point_a[0], point_b[1] - point_a[1])
-            self.track_bearing_in = self.nav.bearing() * 180.0 / math.pi
-            if self.track_bearing_in < 0:
-                self.track_bearing_in = self.track_bearing_in + 360.0
             # Initialize track outbound from b
-            self.nav.local_target_set = False
             self.nav.set_local_target(point_c[0] - point_b[0], point_c[1] - point_b[1])
             self.track_bearing_out = self.nav.bearing() * 180.0 / math.pi
             if self.track_bearing_out < 0:
                 self.track_bearing_out = self.track_bearing_out + 360.0
-            self.track_distance = self.nav.distance()
+            # Initialize track inbound to b
+            self.nav.local_target_set = False
+            self.nav.set_local_target(point_b[0] - point_a[0], point_b[1] - point_a[1])
+            self.track_bearing_in = self.nav.bearing() * 180.0 / math.pi
+            if self.track_bearing_in < 0:
+                self.track_bearing_in = self.track_bearing_in + 360.0
+
+            # # Track to an absolute point in space
+            # self.nav.local_target_set = False
+            # self.nav.set_local_target(point_b[0], point_b[1])
+            # self.track_distance = self.nav.distance()
             self.flag = False
-            print(self.track_bearing_in)
         if self.nav is not None:
+
+            # define angle of filet from out and in plane
             filet_angle = self.track_bearing_out - self.track_bearing_in
+            if filet_angle < 0:
+                filet_angle = filet_angle + 360
             if self.state == 0:
-                r_point = profile[self.track_id]
+                # Calculate h_plane to transition from straight line state to curved filet state
                 q = self.nav.unit_dir_vector(profile[self.track_id], profile[self.track_id + 1])
                 w = profile[self.track_id + 1]
-                z_point = (w[0] - ((radius / math.tan(filet_angle / 2)) * q[0]),
-                           w[1] - ((radius / math.tan(filet_angle / 2)) * q[1]))
-                # print(self.track_bearing_in, self.track_bearing_out)
+                z_point = (w[0] - ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q[0]),
+                           w[1] - ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q[1]))
                 cur = self.nav.get_local_pos()
                 h_point = (cur[0] - z_point[0], cur[1] - z_point[1])
-                # print(z_point, cur)
                 h_val = (h_point[0] * q[0]) + (h_point[1] * q[1])
                 if h_val > 0:
-                    # entered h plane
+                    # Entered h plane transition to curved segment
                     self.state = 1
+
                 # Track straight line segment
-                self.nav.local_target_set = False  # break target guard
-                self.nav.set_local_target(r_point[0], r_point[1])
                 bearing = self.nav.bearing() * 180.0 / math.pi
                 if bearing < 0:
                     bearing = bearing + 360
                 distance = self.nav.distance()
                 off_tk_angle = bearing - self.track_bearing_in
-                # print(bearing)
                 if off_tk_angle > 180:
                     off_tk_angle = off_tk_angle - 360.0
                 # scale response with distance from target
@@ -363,20 +362,20 @@ class X8Autopilot:
                 if distance_to_go > 3000:
                     distance_to_go = 3000
                 heading = (8 * 0.00033 * distance_to_go * off_tk_angle) + self.track_bearing_in
-                heading = self.track_bearing_in
-                # print(self.track_bearing_in)
                 self.heading_hold(heading)
+                self.altitude_hold(altitude_comm=w[2])
+
             if self.state == 1:
+                # filet
                 q0 = self.nav.unit_dir_vector(profile[self.track_id], profile[self.track_id + 1])
                 q1 = self.nav.unit_dir_vector(profile[self.track_id + 1], profile[self.track_id + 2])
                 q_grad = self.nav.unit_dir_vector(q1, q0)
                 w = profile[self.track_id + 1]
-                center_point = (w[0] - ((radius / math.tan(filet_angle / 2)) * q_grad[0]),
-                                w[1] - ((radius / math.tan(filet_angle / 2)) * q_grad[1]))
-                z_point = (w[0] + ((radius / math.tan(filet_angle / 2)) * q1[0]),
-                           w[1] + ((radius / math.tan(filet_angle / 2)) * q1[1]))
-                # print('center point:', center_point)
-                # print(q1, q0)
+                # center point of arc (mirrored from radius and apex of turn)
+                center_point = (w[0] - ((radius / math.sin(filet_angle / 2 * (math.pi / 180.0))) * q_grad[0]),
+                                w[1] - ((radius / math.sin(filet_angle / 2 * (math.pi / 180.0))) * q_grad[1]))
+                z_point = (w[0] + ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q1[0]),
+                           w[1] + ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q1[1]))
                 turning_direction = math.copysign(1, (q0[0] * q1[1]) - (q0[1] * q1[0]))
                 cur = self.nav.get_local_pos()
                 h_point = (cur[0] - z_point[0], cur[1] - z_point[1])
@@ -386,40 +385,24 @@ class X8Autopilot:
                     self.state = 0
                     return
 
-                heading = self.sim[prp.heading_deg]
+                # Control circular (orbit) motion
                 distance_from_center = math.sqrt(math.pow(cur[0] - center_point[0], 2) +
                                                  math.pow(cur[1] - center_point[1], 2))
                 circ_x = cur[1] - center_point[1]
                 circ_y = cur[0] - center_point[0]
-                # print(center_point, cur, z_point, heading)
-                # print(circ_x, circ_y)
                 circle_angle = math.atan2(circ_x, circ_y)
-                # if circ_x < 0 < circ_y or circ_y < 0 < circ_x:
-                #     circle_angle = circle_angle + math.pi
-                if circ_x < 0 and circ_y < 0:
+                if circle_angle < 0:
                     circle_angle = circle_angle + (2 * math.pi)
-                # print(circle_angle * (180.0 / math.pi))
                 tangent_track = circle_angle + (turning_direction * (math.pi / 2))
                 if tangent_track < 0:
                     tangent_track = tangent_track + (2 * math.pi)
                 if tangent_track > 2 * math.pi:
                     tangent_track = tangent_track - (2 * math.pi)
                 tangent_track = tangent_track * (180.0 / math.pi)
-                # print(tangent_track)
-                heading = tangent_track
-                # print(heading)
-                # print(self.sim[prp.heading_deg])
+                error = (distance_from_center - radius) / radius
+                k_orbit = 4.0
+                heading = tangent_track + (math.atan(k_orbit * error) * (180.0 / math.pi))
 
-
-                # print(circle_angle * 180 / math.pi)
-                # if circle_angle - heading < - math.pi:
-                #     circle_angle = circle_angle + 2 * math.pi
-                # if circle_angle - heading > math.pi:
-                #     circle_angle = circle_angle - 2 * math.pi
-                # error = (distance_from_center - radius) / radius
-                # k_orbit = 1.0
-                # heading = (circle_angle + error_sign * ((math.pi / 2) + math.atan(k_orbit * - error))) * 180 / math.pi
-                # print(math.atan(k_orbit * error) * 180 / math.pi)
                 self.heading_hold(heading)
 
 

@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import jsbsim_properties as prp
 import math
 
