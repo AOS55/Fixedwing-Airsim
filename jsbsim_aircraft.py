@@ -1,7 +1,10 @@
 import collections
 
 
-"""Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/aircraft.py by Gordon Rennie"""
+"""
+Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/aircraft.py by Gordon Rennie.
+Defines allowable aircraft types, this package is based around the x8 autopilot 
+"""
 
 
 class Aircraft(collections.namedtuple('Aircraft', ['jsbsim_id', 'name', 'cruise_speed_kts'])):

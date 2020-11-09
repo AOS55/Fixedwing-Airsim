@@ -105,7 +105,7 @@ class LocalNavigation:
 
     def get_local_pos(self) -> tuple:
         """
-        get the aircraft's current position
+        Get the aircraft's current position
 
         :return: current position
         """
@@ -116,7 +116,7 @@ class LocalNavigation:
 
     def bearing(self) -> float:
         """
-        calculate the bearing between the current position and target position
+        Calculate the bearing between the current position and target position
 
         :return: bearing [degrees]
         """
@@ -129,7 +129,7 @@ class LocalNavigation:
 
     def distance(self) -> float:
         """
-        calculate the distance from current position to the target position
+        Calculate the distance from current position to the target position
 
         :return: distance from target [m]
         """
@@ -143,7 +143,7 @@ class LocalNavigation:
     @staticmethod
     def x_track_error(distance: float, off_tk_angle: float) -> float:
         """
-        calculate the distance between the current position and track
+        Calculate the distance between the current position and track
 
         :param distance: distance from the target [m]
         :param off_tk_angle: angle between the track and bearing to target [radians]
@@ -155,7 +155,7 @@ class LocalNavigation:
     @staticmethod
     def distance_to_go(distance: float, off_tk_angle: float) -> float:
         """
-        calculate the distance to go along the track
+        Calculate the distance to go along the track
 
         :param distance: distance from target [m]
         :param off_tk_angle: angle between the track and bearing to target [radians]
@@ -167,7 +167,7 @@ class LocalNavigation:
     @staticmethod
     def unit_dir_vector(start_point: tuple, end_point: tuple) -> tuple:
         """
-        calculate the unitary direction vector between 2 2D points
+        Calculate the unitary direction vector between 2 2D points
 
         :param start_point: track starting position
         :param end_point: track ending position
@@ -246,7 +246,7 @@ class WindEstimation:
 
     def get_current_pos(self) -> tuple:
         """
-        get the aircraft's current position in lat and long from a [0, 0] center of earth origin
+        Get the aircraft's current position in lat and long from a [0, 0] center of earth origin
 
         :var: latitude [m]
         :var: longitude [m]
@@ -260,7 +260,7 @@ class WindEstimation:
 
     def get_aircraft_state(self) -> None:
         """
-        get aircraft simulation variables airspeed and heading
+        Get aircraft simulation variables airspeed and heading
 
         :var: airspeed [m/s]
         :var: heading [rad]
@@ -271,7 +271,7 @@ class WindEstimation:
 
     def track(self) -> None:
         """
-        get ground_speed and track_angle from old_cur to cur
+        Get ground_speed and track_angle from old_cur to cur
 
         :return:
         """
@@ -286,7 +286,7 @@ class WindEstimation:
 
     def wind_components(self) -> tuple:
         """
-        calculate the observed wind speed and wind bearing
+        Calculate the observed wind speed and wind bearing
 
         :var: wind_speed [m/s]
         :var: wind_angle [rads]
@@ -312,7 +312,7 @@ class WindEstimation:
 
     def wind_data(self, n) -> list:
         """
-        store the wind data calculated from the wind_components to calculate the expected value of wind in subsequent
+        Store the wind data calculated from the wind_components to calculate the expected value of wind in subsequent
         time steps
 
         :param n: number of wind tuples in sample observation
@@ -326,7 +326,7 @@ class WindEstimation:
 
     def wind_average(self, n=1000) -> tuple:
         """
-        calculate the arithmetic mean of wind tuples over n observations as a rolling average
+        Calculate the arithmetic mean of wind tuples over n observations as a rolling average
 
         :param n:
         :return: average wind

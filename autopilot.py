@@ -80,10 +80,58 @@ class C172Autopilot:
 
 
 class X8Autopilot:
+    """
+    The low-level autopilot control for the X8 fixed wing UAV aircraft
+
+     ...
+
+    Attributes:
+    -----------
+    sim : Simulation object
+        an instance of the flight simulation flight dynamic model, used to interface with JSBSim
+    nav : LocalNavigation object
+        the core position and tracking methods used in the path planning methods
+    track_bearing : float
+        the bearing from a starting point to a target point [radians]
+    track_bearing_in : float
+        the bearing from a starting point 'a' to a target point 'b' [radians]
+    track_bearing_out : float
+        the bearing from a target point to 'b' to the following point 'c' [radians]
+    track_distance : float
+        the distance from a starting point to a target point [m]
+    flag : bool
+        a variable returned by a method to indicate a significant change in simulation state or termination condition
+    track_id : int
+        a counter for the points in a profile
+    state: int
+        the state or mode an autopilot is currently engaged in
+
+    Methods:
+    -------
+    pitch_hold(pitch_comm)
+        maintains a commanded pitch attitude [radians] using a PI controller
+    roll_hold(roll_comm)
+        maintains a commanded roll attitude [radians] using a PID controller
+    heading_hold(heading_comm)
+        maintains a commanded heading [degrees] using a PD controller
+    airspeed_hold_w_throttle(airspeed_comm)
+        maintains a commanded airspeed [KTAS] using throttle_cmd
+    altitude_hold(altitude_comm)
+        maintains a demanded altitude [feet] using pitch attitude
+    home_to_target(target_northing, target_easting, target_alt)
+        homes towards a 2D (lat, long) point in space and uses altitude_hold to maintain an altitude
+    track_to_target(target_northing, target_easting, target_alt)
+        maintains a track from the point the simulation started at to the target point
+    track_to_profile(profile)
+        maintains a track along a series of points in the simulation and the defined altitude along each path segment
+
+
+
+    """
     def __init__(self, sim):
         self.sim = sim
         self.nav = None
-        self.orbit_nav = None
+        # self.orbit_nav = None
         self.track_bearing = 0
         self.track_bearing_in = 0
         self.track_bearing_out = 0
@@ -92,7 +140,13 @@ class X8Autopilot:
         self.track_id = -1
         self.state = 0
 
-    def pitch_hold(self, pitch_comm):
+    def pitch_hold(self, pitch_comm: float) -> None:
+        """
+        Maintains a commanded pitch attitude [radians] using a PI controller
+
+        :param pitch_comm: commanded pitch attitude [radians]
+        :return: None
+        """
         # Nichols Ziegler tuning Pcr = 0.25s, Kcr = 7.5, PI chosen
         error = pitch_comm - self.sim[prp.pitch_rad]
         kp = 3.4
@@ -102,7 +156,13 @@ class X8Autopilot:
         output = controller(error)
         self.sim[prp.elevator_cmd] = output
 
-    def roll_hold(self, roll_comm):
+    def roll_hold(self, roll_comm: float) -> None:
+        """
+        Maintains a commanded roll attitude [radians] using a PID controller
+
+        :param roll_comm: commanded roll attitude [radians]
+        :return: None
+        """
         # Nichols Ziegler tuning Pcr = 0.29, Kcr = 0.0380, PID chosen
         error = roll_comm - self.sim[prp.roll_rad]
         kp = 0.0228
@@ -112,7 +172,13 @@ class X8Autopilot:
         output = - controller(error)
         self.sim[prp.aileron_cmd] = output
 
-    def heading_hold(self, heading_comm):
+    def heading_hold(self, heading_comm: float) -> None:
+        """
+        Maintains a commanded heading [degrees] using a PD controller
+
+        :param heading_comm: commanded heading [degrees]
+        :return: None
+        """
         # Attempted Nichols-Ziegler with Pcr = 0.048, Kcr=1.74, lead to a lot of overshoot
         error = heading_comm - self.sim[prp.heading_deg]
         # Ensure the aircraft always turns the shortest way round
@@ -132,7 +198,13 @@ class X8Autopilot:
             output = 30 * (math.pi / 180)
         self.roll_hold(output)
 
-    def airspeed_hold_w_throttle(self, airspeed_comm):
+    def airspeed_hold_w_throttle(self, airspeed_comm: float) -> None:
+        """
+        Maintains a commanded airspeed [KTAS] using throttle_cmd
+
+        :param airspeed_comm: commanded airspeed [KTAS]
+        :return: None
+        """
         # Appears fine with simple proportional controller, light airspeed instability at high speed (100kts)
         error = airspeed_comm - (self.sim[prp.airspeed] * 0.5925) # set airspeed in KTAS
         kp = 0.022
@@ -142,7 +214,13 @@ class X8Autopilot:
         output = airspeed_controller(-error)
         self.sim[prp.throttle_cmd] = output
 
-    def altitude_hold(self, altitude_comm):
+    def altitude_hold(self, altitude_comm) -> None:
+        """
+        Maintains a demanded altitude [feet] using pitch attitude
+
+        :param altitude_comm: demanded altitude [feet]
+        :return: None
+        """
         # Tuned from level off works up to around 100kts used Nichols-Ziegler with Pcr = 0.1, Kcr=0.19
         error = altitude_comm - self.sim[prp.altitude_sl_ft]
         kp = 0.11
@@ -157,32 +235,49 @@ class X8Autopilot:
             output = 15 * (math.pi / 180)
         self.pitch_hold(output)
 
-    def home_to_target(self, target_northing, target_easting, target_alt):
+    def home_to_target(self, target_northing: float, target_easting: float, target_alt: float) -> bool:
+        """
+        Homes towards a 2D (lat, long) point in space and uses altitude_hold to maintain an altitude
+
+        :param target_northing: latitude of target relative to current position [m]
+        :param target_easting: longitude of target relative to current position [m]
+        :param target_alt: demanded altitude for this path segment [feet]
+        :return: flag==True if the simulation has reached a target in space
+        """
         if self.nav is None:
-            # initialize target
+            # initialize targeting/navigation object
             self.nav = LocalNavigation(self.sim)
             self.nav.set_local_target(target_northing, target_easting)
             self.flag = False
         if self.nav is not None:
             if not self.flag:
-                # fly to target
+                # fly to target using bearing calculated from current position
                 bearing = self.nav.bearing() * 180.0 / math.pi
                 if bearing < 0:
                     bearing = bearing + 360
                 distance = self.nav.distance()
+                # when within 100m radius return flag and stop a/p functionality
                 if distance < 100:
                     self.flag = True
                     self.nav = None
                     return self.flag
-                # heading_error = bearing - self.sim[prp.heading_deg]
-                # heading_error = 1.0 * heading_error
-                # self.heading_hold(self.sim[prp.heading_deg] + heading_error)
                 self.heading_hold(bearing)
                 self.altitude_hold(target_alt)
-                # print('Demanded heading: ', bearing, 'Actual heading: ', self.sim[prp.heading_deg])
-                # print('Distance to target:', distance)
 
-    def track_to_target(self, target_northing, target_easting, target_alt):
+    def track_to_target(self, target_northing: float, target_easting: float, target_alt: float) -> bool:
+        """
+        Maintains a track from the point the simulation started at to the target point
+
+        ...
+
+        This ensures the aircraft does not fly a curved homing path if displaced from track but instead aims to
+        re-establish the track to the pre-defined target point in space. The method terminates when the aircraft arrives
+        at a point within 200m of the target point.
+        :param target_northing: latitude of target relative to current position [m]
+        :param target_easting: longitude of target relative to current position [m]
+        :param target_alt: demanded altitude for this path segment [feet]
+        :return: flag==True if the simulation has reached the target
+        """
         if self.nav is None:
             # initialize target and track
             self.nav = LocalNavigation(self.sim)
@@ -200,13 +295,12 @@ class X8Autopilot:
             distance = self.nav.distance()
             off_tk_angle = self.track_bearing - bearing
             distance_to_go = self.nav.distance_to_go(distance, off_tk_angle)
-            # use a controller to regulate the closure rate relative to the track
+            # use a P controller to regulate the closure rate relative to the track
             error = off_tk_angle * distance_to_go
             kp = 0.01
             ki = 0.0
             kd = 0.0
             closure_controller = PID(kp, ki, kd)
-            # print(closure_controller(-error), bearing)
             heading = closure_controller(-error) + bearing
             if distance < 200:
                 self.flag = True
@@ -214,10 +308,21 @@ class X8Autopilot:
                 return self.flag
             self.heading_hold(heading)
             self.altitude_hold(target_alt)
-            # print('Demanded heading: ', heading, 'Actual heading: ', self.sim[prp.heading_deg])
-            # print('Distance to target:', distance)
 
-    def track_to_profile(self, profile):
+    def track_to_profile(self, profile: list) -> bool:
+        """
+        Maintains a track along a series of points in the simulation and the defined altitude along each path segment
+
+        ...
+
+        This ensures the aircraft does not fly a curved homing path if displaced from track but instead aims to
+        re-establish the track to the pre-defined target point in space. The method switches to the next target point
+        when the aircraft arrives at a point within 300m of the current target point. The method terminates when the
+        final point(:tuple) in the profile(:list) is reached.
+        :param profile: series of points used to define a path formatted with a tuple at each index of the list
+            [latitude, longitude, altitude]
+        :return: flag==True if the simulation has reached the final target
+        """
         if self.nav is None:
             self.track_id = self.track_id + 1
             if self.track_id == len(profile) - 1:
@@ -251,55 +356,29 @@ class X8Autopilot:
             # radius = (self.sim[prp.airspeed] * 0.5925 / (20.0 * math.pi)) * 1852  # rate 1 radius
             radius = 300
             self.heading_hold(heading)
+            self.altitude_hold(self.track_id[2])
             if distance < radius:
                 self.nav = None
 
-    def orbit_point(self, point, radius):
-        if self.orbit_nav is None:
-            self.orbit_nav = LocalNavigation(self.sim)
-            self.orbit_nav.set_local_target(point[0], point[1])
-        if self.orbit_nav is not None:
-            bearing = self.orbit_nav.bearing()
-            if bearing < 0:
-                bearing = bearing + (2 * math.pi)
-            circle_bearing = bearing - math.pi
-            if circle_bearing < 0:
-                circle_bearing = circle_bearing + (2 * math.pi)
-            circle_delta_y = radius * math.cos(circle_bearing)
-            circle_delta_x = radius * math.sin(circle_bearing)
-            # print(circle_delta_y, circle_delta_x)
-            circle_point = (point[0] + circle_delta_y, point[1] + circle_delta_x)
-            dist_off = radius / 20
-            tangent_bearing = circle_bearing - (math.pi / 2)
-            distance = self.orbit_nav.distance()
-            # error = (distance - radius) / 5
-            # heading = tangent_bearing * (180 / math.pi) - error
-            # print(heading, self.sim[prp.heading_deg])
-            # print(distance)
-            offset_delta_y = dist_off * math.cos(tangent_bearing)
-            offset_delta_x = dist_off * math.sin(tangent_bearing)
-            offset_point = (circle_point[0] + offset_delta_y, circle_point[1] + offset_delta_x)
-            # self.orbit_nav.local_target_set = False
-            # self.orbit_nav.set_local_target(offset_point[0], offset_point[1])
-            leading_bearing = self.orbit_nav.bearing() * 180.0 / math.pi
-            if leading_bearing < 0:
-                leading_bearing = leading_bearing + 360.0
-            tangent_bearing = tangent_bearing * 180.0 / math.pi
-            if tangent_bearing < 0:
-                tangent_bearing = tangent_bearing + 360.0
-            off_tk_angle = leading_bearing - tangent_bearing
-            if off_tk_angle < -180.0:
-                off_tk_angle = off_tk_angle + 360.0
-            if off_tk_angle > 180.0:
-                off_tk_angle = off_tk_angle - 360.0
-            heading = (2 * off_tk_angle) + tangent_bearing
-            if heading > 360.0:
-                heading = heading - 360.0
-            self.heading_hold(heading)
-            print(distance)
+    def arc_path(self, profile, radius) -> bool:
+        """
+        Maintains a track along a series of points in the simulation and the defined altitude along each path segment,
+        ensures a smooth turn by flying an arc/filet with radius=radius at each point
 
-    def arc_path(self, profile, radius):
-        #  Not sure why the fillet points can't get round final corner
+        ...
+
+        The aircraft maintains a track based on the bearing from the location the target was instantiated to the target.
+        When within a radius or crossing a plane perpendicular to track the aircraft goes from straight track mode to
+        flying a curved path of radius r around a point perpendicular to the point created by the confluence of the two
+        tracks. The method switches to the next point when it reaches a point equidistant from the beginning of the arc.
+        The method terminates when there is no further 'b' or 'c' points available i.e. 2 points before the final track.
+        The method is based off the algorithm defined in Beard & McLain chapter 11, path planning:
+        http://uavbook.byu.edu/doku.php
+        :param profile: series of points used to define a path formatted with a tuple at each index of the list
+            [latitude, longitude, altitude]
+        :param radius: fillet radial distance [m], used to calculate z point
+        :return: flag==True if the simulation has reached the termination condition
+        """
         if self.nav is None:
             # print(self.state)
             print('Changing points !!!')
@@ -331,8 +410,7 @@ class X8Autopilot:
             # self.track_distance = self.nav.distance()
             self.flag = False
         if self.nav is not None:
-
-            # define angle of filet from out and in plane
+            # Define angle of filet from out and in plane
             filet_angle = self.track_bearing_out - self.track_bearing_in
             if filet_angle < 0:
                 filet_angle = filet_angle + 360
@@ -366,7 +444,7 @@ class X8Autopilot:
                 self.altitude_hold(altitude_comm=w[2])
 
             if self.state == 1:
-                # filet
+                # filet location
                 q0 = self.nav.unit_dir_vector(profile[self.track_id], profile[self.track_id + 1])
                 q1 = self.nav.unit_dir_vector(profile[self.track_id + 1], profile[self.track_id + 2])
                 q_grad = self.nav.unit_dir_vector(q1, q0)
@@ -402,7 +480,6 @@ class X8Autopilot:
                 error = (distance_from_center - radius) / radius
                 k_orbit = 4.0
                 heading = tangent_track + (math.atan(k_orbit * error) * (180.0 / math.pi))
-
                 self.heading_hold(heading)
 
 

@@ -2,7 +2,7 @@ import airsim
 import math
 import matplotlib.pyplot as plt
 
-"""Should be deleted, just to test unknowns"""
+"""Should be deleted, just to test unknowns, should probably implement actual tests !!!"""
 
 # pitch = [0] * 10
 # roll = [0] * 10

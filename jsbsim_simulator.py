@@ -16,7 +16,7 @@ class Simulation:
 
     ...
 
-    Attributes
+    Attributes:
     ----------
     fdm : object
         an object that is an instance of the JSBSim's flight dynamic model
@@ -36,7 +36,7 @@ class Simulation:
     client : object
         connection to airsim for visualization
 
-    Methods
+    Methods:
     ------
     load_model(model_name)
         Ensure the JSBSim flight dynamic model is found and loaded in correctly
