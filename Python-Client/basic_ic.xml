@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <initialize name="basic_ic">
   <!--
-    Basic set of initial conditions at 300 ft with engines running.
+    Basic set of initial conditions at 1000 ft with engines running.
   -->
   <ubody unit="FT/SEC">     50.0 </ubody>  <!-- approx. 20 KIAS -->
   <vbody unit="FT/SEC">     0.0  </vbody>
