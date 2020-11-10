@@ -3,7 +3,7 @@ import collections
 
 """
 Based on https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/aircraft.py by Gordon Rennie.
-Defines allowable aircraft types, this package is based around the x8 autopilot 
+Defines allowable aircraft types, this package is based around the x8 light UAV aircraft. 
 """
 
 
