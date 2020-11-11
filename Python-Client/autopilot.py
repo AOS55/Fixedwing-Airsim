@@ -3,7 +3,7 @@ import jsbsim_properties as prp
 from jsbsim_simulator import Simulation
 from scipy import interpolate
 import math
-from Navigation import Navigation, LocalNavigation
+from Navigation import LocalNavigation
 
 
 # Should this be derived from simulation ?
@@ -481,6 +481,7 @@ class X8Autopilot:
                 k_orbit = 4.0
                 heading = tangent_track + (math.atan(k_orbit * error) * (180.0 / math.pi))
                 self.heading_hold(heading)
+                self.altitude_hold(altitude_comm=w[2])
 
 
 

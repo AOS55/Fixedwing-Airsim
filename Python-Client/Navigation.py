@@ -3,7 +3,7 @@ import jsbsim_properties as prp
 import statistics
 
 
-class Navigation:
+class GlobalNavigation:
     # http://www.movable-type.co.uk/scripts/latlong.html was a useful reference
     def __init__(self, sim):
         self.sim = sim

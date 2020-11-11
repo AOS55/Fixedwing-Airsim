@@ -201,8 +201,10 @@ class Simulation:
 
         :return: position [lat, long, alt]
         """
-        lat = self[prp.lng_travel_m]
-        long = self[prp.lat_travel_m]
+        # lat = self[prp.lat_travel_m]
+        # long = self[prp.lng_travel_m]
+        lat = 111320 * self[prp.lat_geod_deg]
+        long = 40075000 * self[prp.lng_geoc_deg] * math.cos(self[prp.lat_geod_deg] * (math.pi / 180.0)) / 360
         alt = self[prp.altitude_sl_ft]
         position = [lat, long, alt]
         return position
@@ -244,6 +246,22 @@ class Simulation:
         euler_angles = self.get_local_orientation()
         pose.orientation = airsim.to_quaternion(euler_angles[0], euler_angles[1], euler_angles[2])
         self.client.simSetVehiclePose(pose, True)
+
+    def get_collision_info(self) -> airsim.VehicleClient.simGetCollisionInfo:
+        """
+        Gets collision info created by Airsim via the unreal engine
+
+        Get the sim collision info object from Airsim with the following properties:
+            - impact_point, where the aircraft collides with terrain
+            - normal, the vector perpendicular to the point where the vehicle collided with terrain
+            - position, the x, y, z position where the vehicle collided with the terrain
+            - penetration_depth, how far through the terrain the collision has propagated
+        The method: has_collided can also be called on the collision_info object to see whether or not a collision has
+        occurred, returns true if it has penetrated the terrain
+        :return: collision_info
+        """
+        collision_info = self.client.simGetCollisionInfo()
+        return collision_info
 
     def close(self) -> None:
         """
