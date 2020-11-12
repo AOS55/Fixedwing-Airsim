@@ -1,3 +1,4 @@
+import airsim
 from jsbsim_simulator import Simulation
 from jsbsim_aircraft import Aircraft, cessna172P, ball, x8
 from debug_utils import *
@@ -5,6 +6,7 @@ import jsbsim_properties as prp
 from simple_pid import PID
 from autopilot import X8Autopilot
 from Navigation import WindEstimation
+from image_processing import AirSimImages, SemanticImageSegmentation
 
 
 def main():
@@ -13,12 +15,16 @@ def main():
     graph = DebugGraphs(sim)
     debug_aero = DebugFDM(sim)
     wind_estimate = WindEstimation(sim)
+    # images = AirSimImages(sim)
+    image_segmentation = SemanticImageSegmentation(sim)
     flag1 = False
     over = False
-    for _ in range(20000 ):
+    for _ in range(20000):
         sim.update_airsim()
         collision_info = sim.get_collision_info()
         print(collision_info.has_collided)
+        # image_segmentation.get_png_image(airsim.ImageType.Scene)
+        image_segmentation.get_segmented_image_plot()
         # ap.pitch_hold(0.05)
         # ap.heading_hold(0.0)
         ap.airspeed_hold_w_throttle(50.0)
@@ -33,20 +39,15 @@ def main():
         if over:
             print('over and out!')
             break
-        if 19.5 < sim[prp.sim_time_s] < 1200:
-            graph.get_abs_pos_data()
-            graph.get_airspeed()
-            graph.get_alpha()
-            graph.get_control_data()
-            graph.get_time_data()
-            graph.get_pos_data()
-            graph.get_angle_data()
+        graph.get_abs_pos_data()
+        graph.get_airspeed()
+        graph.get_alpha()
+        graph.get_control_data()
+        graph.get_time_data()
+        graph.get_pos_data()
+        graph.get_angle_data()
         sim.run()
     print('Simulation ended')
-    # graph.pos_plot()
-    # graph.att_plot()
-    # graph.lift_plot()
-    # graph.pitch_plot()
     graph.control_plot()
     graph.trace_plot_abs()
     return

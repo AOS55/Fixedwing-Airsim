@@ -1,55 +1,45 @@
-import airsim
-import math
+import torch
+import urllib
+from PIL import Image
+from torchvision import transforms
 import matplotlib.pyplot as plt
 
 """Should be deleted, just to test unknowns, should probably implement actual tests !!!"""
 
-# pitch = [0] * 10
-# roll = [0] * 10
-# yaw = [0, 0, 0, 0, 0, 6.1, 6.1, 6.0, 6.0, 6.0]
-#
-# alt = [10] * 10
-# long = [0] * 10
-# lat = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 25.0, 25.5]
-#
-# client = airsim.VehicleClient()
-# client.confirmConnection()
-#
-# for t in range(10):
-#     pose = client.simGetVehiclePose()
-#     pose.position.x_val = lat[t]
-#     pose.position.y_val = long[t]
-#     pose.position.z_val = - alt[t]
-#     pose.orientation = airsim.to_quaternion(pitch[t], roll[t], yaw[t])
-#     client.simSetVehiclePose(pose, True)
+model = torch.hub.load('pytorch/vision:v0.6.0', 'deeplabv3_resnet101', pretrained=True)
+model.eval()
 
-airspeed = 25.653529915395765
-heading = 20 * (math.pi / 180)
-old_cur = (1881.965612819288, 265.3750003228467)
-cur = (1882.1719505281862, 265.36504842964456)
-dt = 0.0083333333
-
-track_vector = (old_cur[0] - cur[0], old_cur[1] - cur[1])
-track_angle = math.atan2(track_vector[1], track_vector[0]) - math.pi
-if track_angle < 0:
-    track_angle = track_angle + (2 * math.pi)
-ground_speed = math.sqrt(pow(track_vector[0], 2) + pow(track_vector[1], 2)) / dt
-
-print(track_angle * (180 / math.pi), ground_speed)
-
-wind_speed = math.sqrt(pow(airspeed, 2) + pow(ground_speed, 2) -
-                       (2 * airspeed * ground_speed * math.cos(track_angle - heading)))
+url, filename = ("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")
 try:
-    wind_angle = math.pi + track_angle + \
-                 math.asin((airspeed * math.sin(track_angle - heading)) / wind_speed)
-    if wind_angle > 2 * math.pi:
-        wind_angle = wind_angle - (2 * math.pi)
-    if wind_angle < 0:
-        wind_angle = wind_angle + (2 * math.pi)
-except ZeroDivisionError:
-    wind_angle = 0.0
-print(airspeed, wind_speed, track_angle * (180 / math.pi), heading * (180 / math.pi), math.asin((airspeed * math.sin(track_angle - heading)) / wind_speed) * (180 / math.pi))
+    urllib.URLopener().retieve(url, filename)
+except:
+    urllib.request.urlretrieve(url, filename)
+input_image = Image.open(filename)
+preprocess = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
 
-print(wind_speed, wind_angle * (180 / math.pi))
+input_tensor = preprocess(input_image)
+input_batch = input_tensor.unsqueeze(0)  # create a mini-batch as expected by the model
 
-fig, ax = plt.subplots()
+# move the input and model to GPU for speed if available
+# if torch.cuda.is_available():
+#     input_batch = input_batch.to('cuda')
+#     model.to('cuda')
+
+with torch.no_grad():
+    output = model(input_batch)['out'][0]
+output_predictions = output.argmax(0)
+
+# create a color palette, selecting a color for each class
+palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** 21 - 1])
+colors = torch.as_tensor([i for i in range(21)])[:, None] * palette
+colors = (colors % 255).numpy().astype("uint8")
+
+# plot the semantic segmentation predictions of 21 classes in each color
+r = Image.fromarray(output_predictions.byte().cpu().numpy()).resize(input_image.size)
+r.putpalette(colors)
+
+plt.imshow(r)
+plt.show()

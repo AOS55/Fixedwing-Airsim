@@ -72,7 +72,6 @@ class Simulation:
         raises the aircraft's landing gear
     """
 
-
     encoding = 'utf-8'
     ROOT_DIR = os.path.abspath('/home/quessy/Dev/jsbsim')
 
