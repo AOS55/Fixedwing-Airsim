@@ -16,20 +16,20 @@ def main():
     debug_aero = DebugFDM(sim)
     wind_estimate = WindEstimation(sim)
     # images = AirSimImages(sim)
-    image_segmentation = SemanticImageSegmentation(sim)
+    # image_segmentation = SemanticImageSegmentation(sim)
     flag1 = False
     over = False
     for _ in range(20000):
-        sim.update_airsim()
+        #  sim.update_airsim()
         collision_info = sim.get_collision_info()
-        print(collision_info.has_collided)
+        # print(collision_info.has_collided)
         # image_segmentation.get_png_image(airsim.ImageType.Scene)
-        image_segmentation.get_segmented_image_plot()
+        # image_segmentation.get_segmented_image_plot()
         # ap.pitch_hold(0.05)
         # ap.heading_hold(0.0)
         ap.airspeed_hold_w_throttle(50.0)
         # ap.altitude_hold(100)
-        print(sim.get_local_position())
+        # print(sim.get_local_position())
         # circuit_profile = ((0, 0, 1000), (4000, 0, 1000), (4000, 4000, 1000), (0, 4000, 1000), (0, 0, 20),
         #                    (4000, 0, 20), (4000, 4000, 20))
         ice_profile = ((0, 0, 0), (1200, 0, 0), (1300, 150, -100), (0, 0, -200), (100, 100, -200))
@@ -50,6 +50,7 @@ def main():
     print('Simulation ended')
     graph.control_plot()
     graph.trace_plot_abs()
+    graph.three_d_scene()
     return
 
 

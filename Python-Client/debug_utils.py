@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
 import jsbsim_properties as prp
 import math
 
@@ -152,6 +153,14 @@ class DebugGraphs:
         ax.plot(self.long_abs, self.lat_abs)
         plt.show()
 
+    def three_d_scene(self):
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        zline = self.alt
+        xline = self.lat
+        yline = self.long
+        ax.plot3D(xline, yline, zline, 'gray')
+        plt.show()
 
 
 class DebugFDM:

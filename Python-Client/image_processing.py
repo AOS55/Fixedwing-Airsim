@@ -1,6 +1,6 @@
 import airsim
 import numpy as np
-import cv2 as cv
+# import cv2 as cv
 import torch
 from jsbsim_simulator import Simulation
 from PIL import Image
@@ -138,13 +138,12 @@ class SemanticImageSegmentation(AirSimImages):
         plt.show()
 
 
-
-def show_webcam():
-    vid = cv.VideoCapture(0)
-    while True:
-        ret, frame = vid.read()
-        cv.imshow('frame', frame)
-        if cv.waitKey(1) & 0xFF == ord('q'):
-            break
-    vid.release()
-    cv.destroyAllWindows()
+# def show_webcam():
+#     vid = cv.VideoCapture(0)
+#     while True:
+#         ret, frame = vid.read()
+#         cv.imshow('frame', frame)
+#         if cv.waitKey(1) & 0xFF == ord('q'):
+#             break
+#     vid.release()
+#     cv.destroyAllWindows()
