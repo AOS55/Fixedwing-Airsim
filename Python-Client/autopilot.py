@@ -223,16 +223,16 @@ class X8Autopilot:
         """
         # Tuned from level off works up to around 100kts used Nichols-Ziegler with Pcr = 0.1, Kcr=0.19
         error = altitude_comm - self.sim[prp.altitude_sl_ft]
-        kp = 0.11
+        kp = 0.01  # 0.11
         ki = 0.05
         kd = 0.03
         altitude_controller = PID(kp, ki, kd)
         output = altitude_controller(-error)
         # prevent excessive pitch +/- 15 degrees
-        if output < - 15 * (math.pi / 180):
-            output = - 15 * (math.pi / 180)
-        if output > 15 * (math.pi / 180):
-            output = 15 * (math.pi / 180)
+        if output < - 10 * (math.pi / 180):
+            output = - 10 * (math.pi / 180)
+        if output > 5 * (math.pi / 180):
+            output = 5 * (math.pi / 180)
         self.pitch_hold(output)
 
     def home_to_target(self, target_northing: float, target_easting: float, target_alt: float) -> bool:

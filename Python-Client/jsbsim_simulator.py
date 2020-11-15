@@ -24,7 +24,7 @@ class Simulation:
         the simulation update rate
     aircraft : Aircraft
         the aircraft type used, cessna172P by default
-    init_conditions : float
+    init_conditions : Dict[prp.Property, float] = None
         the simulations initial conditions None by default as in basic_ic.xml
     debug_level : int
         the level of debugging sent to the terminal by jsbsim

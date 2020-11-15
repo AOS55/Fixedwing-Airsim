@@ -156,9 +156,9 @@ class DebugGraphs:
     def three_d_scene(self):
         fig = plt.figure()
         ax = plt.axes(projection='3d')
-        zline = self.alt
-        xline = self.lat
-        yline = self.long
+        zline = [x / 3.28 for x in self.alt]
+        xline = self.lat_abs
+        yline = self.long_abs
         ax.plot3D(xline, yline, zline, 'gray')
         plt.show()
 
