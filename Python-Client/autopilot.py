@@ -3,7 +3,7 @@ import jsbsim_properties as prp
 from jsbsim_simulator import Simulation
 from scipy import interpolate
 import math
-from Navigation import LocalNavigation
+from navigation import LocalNavigation
 
 
 # Should this be derived from simulation ?

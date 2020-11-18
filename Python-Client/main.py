@@ -9,7 +9,7 @@ from debug_utils import *
 import jsbsim_properties as prp
 from simple_pid import PID
 from autopilot import X8Autopilot
-from Navigation import WindEstimation
+from navigation import WindEstimation
 from image_processing import AirSimImages, SemanticImageSegmentation
 from typing import Type, Tuple, Dict
 
