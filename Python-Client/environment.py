@@ -12,6 +12,7 @@ from autopilot import X8Autopilot
 from navigation import WindEstimation
 from image_processing import AirSimImages, SemanticImageSegmentation
 from typing import Type, Tuple, Dict
+from tasks import *
 
 
 class Environment(gym.Env):
