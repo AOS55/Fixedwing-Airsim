@@ -319,9 +319,9 @@ class LandingTask(FlightTask):
     target_altitude = BoundedProperty('target/altitude', 'desired altitude [feet]',
                                       prp.altitude_sl_ft.min, prp.altitude_sl_ft.max)
     target_heading = BoundedProperty('target/heading', 'desired heading [deg]',
-                                     prp.heading_deg.min, prp.heading_deg.max)
+                                     rp.heading_deg.min, prp.heading_deg.max)
 
-    action_variables = (target_airspeed, target_altitude, target_heading)
+    action_variables = (target_airspeed, target_altitude, target_heading) 
 
     def __init__(self,
                  aircraft: Aircraft):

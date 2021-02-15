@@ -4,6 +4,7 @@ from jsbsim_simulator import Simulation
 from scipy import interpolate
 import math
 from navigation import LocalNavigation
+import control
 
 
 # Should this be derived from simulation ?
@@ -108,6 +109,8 @@ class X8Autopilot:
 
     Methods:
     -------
+    test_controls(elevator, aileron, tla)
+        allows for manual input of the aircraft's controls
     pitch_hold(pitch_comm)
         maintains a commanded pitch attitude [radians] using a PI controller
     roll_hold(roll_comm)
@@ -139,6 +142,19 @@ class X8Autopilot:
         self.flag = False
         self.track_id = -1
         self.state = 0
+
+    def test_controls(self, elevator=0, aileron=0, tla=0) -> None:
+        """
+        Directly control the aircraft using control surfaces for the purpose of testing the model
+
+        :param elevator: elevator angle [-30 to +30]
+        :param aileron: aileron angle [-30 to +30]
+        :param tla: Thrust Lever Angle [0 to 1]
+        :return: None
+        """
+        self.sim[prp.elevator_cmd] = elevator
+        self.sim[prp.aileron_cmd] = aileron
+        self.sim[prp.throttle_cmd] = tla
 
     def pitch_hold(self, pitch_comm: float) -> None:
         """
@@ -206,12 +222,17 @@ class X8Autopilot:
         :return: None
         """
         # Appears fine with simple proportional controller, light airspeed instability at high speed (100kts)
-        error = airspeed_comm - (self.sim[prp.airspeed] * 0.5925) # set airspeed in KTAS
+        error = airspeed_comm - (self.sim[prp.airspeed] * 0.5925)  # set airspeed in KTAS
         kp = 0.022
         ki = 0.0
         kd = 0.0
         airspeed_controller = PID(kp, kd, ki)
         output = airspeed_controller(-error)
+        # Clip throttle command from 0 to +1 can't be allowed to exceed this!
+        if output > 1:
+            output = 1
+        if output < 0:
+            output = 0
         self.sim[prp.throttle_cmd] = output
 
     def altitude_hold(self, altitude_comm) -> None:
@@ -483,6 +504,64 @@ class X8Autopilot:
                 self.heading_hold(heading)
                 self.altitude_hold(altitude_comm=w[2])
 
+
+# class X8StateSpace:
+#     """
+#     State-Space based control system for the X8 UAV
+#
+#     ...
+#
+#     Attributes:
+#     -----------
+#     sim : Simulation object
+#         an instance of the flight simulation flight dynamic model, used to interface with JSBSim
+#
+#     Methods:
+#     -------
+#     system_id(self)
+#         identifies the FDM's non-linear state-space model
+#     """
+#
+#     def __init__(self, sim, dt):
+#         self.sim = sim
+#         self.dt = dt
+#
+#     def system_id(self) -> control.iosys.InputOutputSystem:
+#         """
+#         Forms a state-space representation of the aircraft for use with controllers and analyzing
+#         the models response.
+#
+#         :return state: the aircraft state-space class
+#         """
+#
+#         # inputs to state-space system
+#         control_in[0] = self.sim[prp.aileron_combined_rad]  # ail
+#         control_in[1] = self.sim[prp.elevator]  # elev
+#         control_in[2] = self.sim[prp.throttle]  # rudd
+#
+#         # states of state-space system
+#         state[0] = self.sim[prp.lat_travel_m]  # x
+#         state[1] = self.sim[prp.lng_travel_m]  # y
+#         state[2] = self.sim[prp.altitude_sl_ft] / 3.28  # z
+#
+#         state[3] = self.sim[prp.roll_rad]
+#         state[4] = self.sim[prp.pitch_rad]
+#         state[5] = self.sim[prp.heading_rad]
+#
+#         state[6] = self.sim[prp.u_fps] / 3.28  # u
+#         state[7] = self.sim[prp.v_fps] / 3.28  # v
+#         state[8] = self.sim[prp.w_fps] / 3.28  # w
+#
+#         state[9] = self.sim[prp.p_radps]  # p
+#         state[10] = self.sim[prp.q_radps]  # q
+#         state[11] = self.sim[prp.r_radps]  # r
+#
+#
+#         return control.iosys.InputOutputSystem(inputs=control_in,
+#                                                outputs=None,
+#                                                states=state,
+#                                                dt=self.dt,
+#                                                name='x8StateSpace')
 
 
 

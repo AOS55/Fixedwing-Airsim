@@ -73,7 +73,7 @@ class Simulation:
     """
 
     encoding = 'utf-8'
-    ROOT_DIR = os.path.abspath('/home/quessy/Dev/jsbsim')
+    ROOT_DIR = os.path.abspath(r"c:\Users\quessy\Dev\jsbsim")
 
     def __init__(self,
                  sim_frequency_hz: float = 60.0,

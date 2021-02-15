@@ -23,6 +23,7 @@ class Property(collections.namedtuple('Property', ['name', 'description'])):
 altitude_sl_ft = BoundedProperty('position/h-sl-ft', 'altitude above mean sea level [ft]', -1400, 85000)
 pitch_rad = BoundedProperty('attitude/pitch-rad', 'pitch [rad]', -0.5 * math.pi, 0.5 * math.pi)
 roll_rad = BoundedProperty('attitude/roll-rad', 'roll [rad]', -math.pi, math.pi)
+heading_rad = BoundedProperty('attitude/psi-rad', 'yaw [rad', -math.pi, math.pi)
 heading_deg = BoundedProperty('attitude/psi-deg', 'heading [deg]', 0, 360)
 sideslip_deg = BoundedProperty('aero/beta-deg', 'sideslip [deg]', -180, +180)
 lat_geod_deg = BoundedProperty('position/lat-geod-deg', 'geocentric latitude [deg]', -90, 90)

@@ -43,6 +43,10 @@ class DebugGraphs:
         self.throttle = []
         self.rudder = []
 
+        self.p = []
+        self.q = []
+        self.r = []
+
     def get_time_data(self):
         self.time.append(self.sim.get_time())
 
@@ -85,12 +89,17 @@ class DebugGraphs:
         self.throttle.append(self.sim[prp.throttle])
         self.rudder.append(self.sim[prp.rudder_rad])
 
+    def get_rate_data(self):
+        self.p.append(self.sim[prp.p_radps])
+        self.q.append(self.sim[prp.q_radps])
+        self.r.append(self.sim[prp.r_radps])
+
     def get_alpha(self):
         self.alpha.append(self.sim[prp.alpha])
 
     def get_airspeed(self):
         self.airspeed.append(self.sim[prp.airspeed] * 0.5925)
-        self.vs.append(self.sim[prp.v_down_fps] * -1)
+        self.vs.append(self.sim[prp.v_down_fps] * -1 * 60)  # multiplied to fpm from fps
 
     def pos_plot(self):
         fig, ax = plt.subplots()
@@ -122,44 +131,70 @@ class DebugGraphs:
         ax.plot(self.alpha, self.cmde, color='red', marker='.',)
         plt.show()
 
+    def roll_rate_plot(self):
+        fig, ax = plt.subplots()
+        ax.plot(self.time, self.p)
+        plt.show()
+
+    def pitch_rate_plot(self):
+        fig, ax = plt.subplots()
+        ax.plot(self.time, self.q)
+        plt.show()
+
     def control_plot(self):
         fig, ax = plt.subplots()
+        ax.set_title('Throttle Control Plot')
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('Control deflection [-]')
         # ax.plot(self.time, self.elevator_cmd)
         # ax.plot(self.time, self.aileron_cmd)
         # ax.plot(self.time, self.throttle_cmd)
         # ax.plot(self.time, self.rudder_cmd)
         # ax.plot(self.time, self.aileron_left)
         # ax.plot(self.time, self.aileron_right)
-        ax.plot(self.time, self.aileron_combined)
-        ax.plot(self.time, self.roll)
+        # ax.plot(self.time, self.aileron_combined)
+        # ax.plot(self.time, self.roll)
         # ax.plot(self.time, self.elevator)
         # ax.plot(self.time, self.throttle)
         # ax.plot(self.time, self.rudder)
         # ax.plot(self.time, self.airspeed)
         # ax.plot(self.time, self.alt)
-        # ax.plot(self.time, self.vs)
+        ax.plot(self.time, self.vs)
         # ax.plot(self.time, self.lat)
         # ax.plot(self.time, self.long)
-        ax.plot(self.time, self.yaw)
+        # ax.plot(self.time, self.yaw)
+        plt.savefig("Control_plot")
         plt.show()
 
     def trace_plot(self):
         fig, ax = plt.subplots()
+        ax.set_title('Trace Plot')
+        ax.set_xlabel('Latitude [degs]')
+        ax.set_ylabel('Longitude [degs]')
         ax.plot(self.lat, self.long)
         plt.show()
 
     def trace_plot_abs(self):
         fig, ax = plt.subplots()
+        ax.set_title('Trace Plot')
+        ax.set_xlabel('Latitude [degs]')
+        ax.set_ylabel('Longitude [degs]')
         ax.plot(self.long_abs, self.lat_abs)
+        plt.savefig("Trace_plot")
         plt.show()
 
     def three_d_scene(self):
         fig = plt.figure()
         ax = plt.axes(projection='3d')
+        ax.set_title('3D plot')
+        ax.set_xlabel('Latitude [degs]')
+        ax.set_ylabel('Longitude [degs]')
+        ax.set_zlabel('Altitude [m]')
         zline = [x / 3.28 for x in self.alt]
         xline = self.lat_abs
         yline = self.long_abs
         ax.plot3D(xline, yline, zline, 'gray')
+        plt.savefig("threed")
         plt.show()
 
 
@@ -168,7 +203,7 @@ class DebugFDM:
         self.sim = sim
 
     def get_lift_values(self):
-        print('vt: ', self.sim[prp.airspeed])
+        print('vt: ', self.sim[prp.airspeed] * 0.5925)
         # print('Sw: ', self.sim[prp.Sw])
         # print('density: ', self.sim[prp.rho])
         # print('qbar_area: ', self.sim[prp.qbar_area])
@@ -181,8 +216,14 @@ class DebugFDM:
         total_lift = self.sim[prp.Clo] + self.sim[prp.Clalpha] + self.sim[prp.Clq] + self.sim[prp.ClDe]
         print('Lift = ', total_lift)
 
+    def get_roll_values(self):
+        print('vt: ', self.sim[prp.airspeed] * 0.5925)
+        print('p: ', self.sim[prp.p_radps])
+
     def get_pitch_values(self):
         print('Cmo: ', self.sim[prp.Cmo])
         print('Cmalpha: ', self.sim[prp.Cmalpha])
         print('Cmq: ', self.sim[prp.Cmq])
         print('CmDe: ', self.sim[prp.CmDe])
+        print('q: ', self.sim[prp.q_radps])
+        print('ROC: ', self.sim[prp.v_down_fps] * -1 * 60)
