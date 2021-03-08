@@ -158,18 +158,22 @@ class X8Autopilot:
 
     def pitch_hold(self, pitch_comm: float) -> None:
         """
-        Maintains a commanded pitch attitude [radians] using a PI controller
+        Maintains a commanded pitch attitude [radians] using a PI controller with a rate component
 
         :param pitch_comm: commanded pitch attitude [radians]
         :return: None
         """
-        # Nichols Ziegler tuning Pcr = 0.25s, Kcr = 7.5, PI chosen
         error = pitch_comm - self.sim[prp.pitch_rad]
-        kp = 3.4
-        ki = 0.208
-        kd = 0.0
-        controller = PID(kp, ki, kd)
+        kp = 1.0
+        ki = 0.0
+        kd = 0.03
+        controller = PID(kp, ki, 0.0)
         output = controller(error)
+        # self.sim[prp.elevator_cmd] = output
+        rate = self.sim[prp.q_radps]
+        rate_controller = PID(kd, 0.0, 0.0)
+        rate_output = rate_controller(rate)
+        output = output+rate_output
         self.sim[prp.elevator_cmd] = output
 
     def roll_hold(self, roll_comm: float) -> None:
@@ -181,16 +185,21 @@ class X8Autopilot:
         """
         # Nichols Ziegler tuning Pcr = 0.29, Kcr = 0.0380, PID chosen
         error = roll_comm - self.sim[prp.roll_rad]
-        kp = 0.0228
-        ki = 0.145
-        kd = 0.03625
-        controller = PID(kp, ki, kd)
-        output = - controller(error)
+        kp = 0.20
+        ki = kp*0.0  # tbd, should use rlocus plot and pole-placement
+        kd = 0.089
+        controller = PID(kp, ki, 0.0)
+        output = controller(error)
+        rate = self.sim[prp.p_radps]
+        rate_controller = PID(kd, 0.0, 0.0)
+        rate_output = rate_controller(rate)
+        output = -output+rate_output
+        # print(output)
         self.sim[prp.aileron_cmd] = output
 
     def heading_hold(self, heading_comm: float) -> None:
         """
-        Maintains a commanded heading [degrees] using a PD controller
+        Maintains a commanded heading [degrees] using a PI controller
 
         :param heading_comm: commanded heading [degrees]
         :return: None
@@ -202,11 +211,11 @@ class X8Autopilot:
             error = error + 360
         if error > 180:
             error = error - 360
-        kp = 0.0085
-        ki = 0.0
-        kd = 0.05
-        heading_controller = PID(kp, ki, kd)
-        output = heading_controller(-error)
+        # print(error)
+        kp = -2.0023 * 0.005
+        ki = -0.6382 * 0.005
+        heading_controller = PID(kp, ki, 0.0)
+        output = heading_controller(error)
         # Prevent over-bank +/- 30 degrees
         if output < - 30 * (math.pi / 180):
             output = - 30 * (math.pi / 180)
@@ -216,17 +225,16 @@ class X8Autopilot:
 
     def airspeed_hold_w_throttle(self, airspeed_comm: float) -> None:
         """
-        Maintains a commanded airspeed [KTAS] using throttle_cmd
+        Maintains a commanded airspeed [KTAS] using throttle_cmd and a PI controller
 
         :param airspeed_comm: commanded airspeed [KTAS]
         :return: None
         """
         # Appears fine with simple proportional controller, light airspeed instability at high speed (100kts)
-        error = airspeed_comm - (self.sim[prp.airspeed] * 0.5925)  # set airspeed in KTAS
-        kp = 0.022
-        ki = 0.0
-        kd = 0.0
-        airspeed_controller = PID(kp, kd, ki)
+        error = airspeed_comm - (self.sim[prp.airspeed] * 0.5925)  # set airspeed in KTAS'
+        kp = 1.0
+        ki = 0.035
+        airspeed_controller = PID(kp, ki, 0.0)
         output = airspeed_controller(-error)
         # Clip throttle command from 0 to +1 can't be allowed to exceed this!
         if output > 1:
@@ -242,18 +250,18 @@ class X8Autopilot:
         :param altitude_comm: demanded altitude [feet]
         :return: None
         """
-        # Tuned from level off works up to around 100kts used Nichols-Ziegler with Pcr = 0.1, Kcr=0.19
+
         error = altitude_comm - self.sim[prp.altitude_sl_ft]
-        kp = 0.01  # 0.11
-        ki = 0.05
-        kd = 0.03
-        altitude_controller = PID(kp, ki, kd)
+        # print('error: ', error)
+        kp = 0.1
+        ki = 0.6
+        altitude_controller = PID(kp, ki, 0)
         output = altitude_controller(-error)
         # prevent excessive pitch +/- 15 degrees
         if output < - 10 * (math.pi / 180):
             output = - 10 * (math.pi / 180)
-        if output > 5 * (math.pi / 180):
-            output = 5 * (math.pi / 180)
+        if output > 15 * (math.pi / 180):
+            output = 15 * (math.pi / 180)
         self.pitch_hold(output)
 
     def home_to_target(self, target_northing: float, target_easting: float, target_alt: float) -> bool:

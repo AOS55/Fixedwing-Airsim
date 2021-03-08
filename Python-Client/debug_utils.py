@@ -133,11 +133,13 @@ class DebugGraphs:
 
     def roll_rate_plot(self):
         fig, ax = plt.subplots()
+        ax.set_title('roll rate')
         ax.plot(self.time, self.p)
         plt.show()
 
     def pitch_rate_plot(self):
         fig, ax = plt.subplots()
+        ax.set_title('pitch rate')
         ax.plot(self.time, self.q)
         plt.show()
 
@@ -154,16 +156,17 @@ class DebugGraphs:
         # ax.plot(self.time, self.aileron_right)
         # ax.plot(self.time, self.aileron_combined)
         # ax.plot(self.time, self.roll)
-        # ax.plot(self.time, self.elevator)
+        # ax.plot(self.time, [x * 10 for x in self.elevator])
+        # ax.plot(self.time, [x * (180.0 / math.pi) for x in self.pitch])
         # ax.plot(self.time, self.throttle)
         # ax.plot(self.time, self.rudder)
         # ax.plot(self.time, self.airspeed)
-        # ax.plot(self.time, self.alt)
-        ax.plot(self.time, self.vs)
+        ax.plot(self.time, self.alt)
+        # ax.plot(self.time, self.vs)
         # ax.plot(self.time, self.lat)
         # ax.plot(self.time, self.long)
         # ax.plot(self.time, self.yaw)
-        plt.savefig("Control_plot")
+        plt.savefig("Control_plot.eps", format='eps')
         plt.show()
 
     def trace_plot(self):
