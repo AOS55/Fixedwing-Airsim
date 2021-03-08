@@ -7,6 +7,7 @@ from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt
 
+
 class AirSimImages:
     """
     A class to get and process images returned from cameras within the AirSim graphical simulation
@@ -22,7 +23,7 @@ class AirSimImages:
     def __init__(self, sim: Simulation):
         self.sim = sim
 
-    def get_np_image(self, type) -> np.array:
+    def get_np_image(self, image_type) -> np.array:
         """
         Gets images from camera '0' as a numpy array
 
@@ -38,7 +39,7 @@ class AirSimImages:
         :return: image_rgb numpy array of with 4 channels of image_type=type
         """
         image_responses = self.sim.client.simGetImages([airsim.ImageRequest('0',
-                                                                            type,
+                                                                            image_type,
                                                                             False,
                                                                             False)])
         image_response = image_responses[0]
@@ -75,7 +76,7 @@ class SemanticImageSegmentation(AirSimImages):
     def __init__(self, sim: Simulation) -> None:
         super().__init__(sim)  # access all image methods contained in AirSimImages
         self.model = self.load_model()
-        self.input_image = self.get_np_image(type=airsim.ImageType.Scene)
+        self.input_image = self.get_np_image(image_type=airsim.ImageType.Scene)
         self.input_batch = self.set_input_batch()
 
     @staticmethod

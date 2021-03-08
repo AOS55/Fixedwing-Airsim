@@ -173,6 +173,8 @@ class Simulation:
         self.set_custom_initial_conditions(init_conditions=init_conditions)
         no_output_reset_mode = 0
         self.fdm.reset_to_initial_conditions(no_output_reset_mode)
+        self.update_airsim()
+
 
     def run(self) -> bool:
         """
