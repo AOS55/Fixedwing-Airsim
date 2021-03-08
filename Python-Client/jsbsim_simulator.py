@@ -244,7 +244,7 @@ class Simulation:
         pose.position.z_val = - position[2]
         euler_angles = self.get_local_orientation()
         pose.orientation = airsim.to_quaternion(euler_angles[0], euler_angles[1], euler_angles[2])
-        self.client.simSetVehiclePose(pose, True)
+        self.client.simSetVehiclePose(pose, False)  # boolean is whether to ignore collisions
 
     def get_collision_info(self) -> airsim.VehicleClient.simGetCollisionInfo:
         """
