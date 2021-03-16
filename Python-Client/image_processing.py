@@ -45,8 +45,8 @@ class AirSimImages:
         image_response = image_responses[0]
         # Get a numpy array from the image_response
         image_1d = np.fromstring(image_response.image_data_uint8, dtype=np.uint8)
-        # reshape array to a 4 channel image array H x W x 4
-        image_rgb = image_1d.reshape(image_response.height, image_response.width, 3)
+        # reshape array to a 3 channel image array 3 x H x W
+        image_rgb = image_1d.reshape(3, image_response.height, image_response.width)
         return image_rgb
 
     def get_png_image(self):

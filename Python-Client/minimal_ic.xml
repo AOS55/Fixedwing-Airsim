@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<initialize name="basic_ic">
+  <!--
+    Basic set of initial conditions at 1000 ft with engines running.
+  -->
+  <ubody unit="FT/SEC">     50.0 </ubody> <!-- approx. 20 KIAS -->
+  <vbody unit="FT/SEC">     0.0  </vbody>
+  <wbody unit="FT/SEC">     0.0  </wbody>
+  <longitude unit="DEG">    0.0 </longitude> <!-- University of Bristol (no more) -->
+  <latitude unit="DEG">     0.0  </latitude>
+  <phi unit="DEG">          0.0  </phi>  <!-- roll -->
+  <theta unit="DEG">        0.0  </theta>  <!-- pitch -->
+  <psi unit="DEG">          0.0  </psi>  <!-- yaw -->
+  <altitude unit="FT">      1000.0 </altitude>
+  <elevation unit="FT">     0.00000001 </elevation> <!-- bug in JSBSim makes 0 cause NaNs -->
+  <winddir unit ="DEG">     90.0 </winddir> <!-- wind direction -->
+  <vwind unit ="FT/SEC">    0.0 </vwind> <!-- wind speed -->
+  <running>                  -1 </running> <!-- starts all engines -->
+</initialize>

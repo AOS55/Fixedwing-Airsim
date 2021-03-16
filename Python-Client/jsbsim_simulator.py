@@ -175,7 +175,6 @@ class Simulation:
         self.fdm.reset_to_initial_conditions(no_output_reset_mode)
         self.update_airsim()
 
-
     def run(self) -> bool:
         """
         Check if the FDM has terminated and if not advances one time step, slows by wall_clock_dt

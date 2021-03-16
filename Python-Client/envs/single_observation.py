@@ -66,8 +66,9 @@ class SingleObservation(gym.Env):
         max_angle = np.array([self.max_hdg, self.max_pitch], dtype=np.float32)
         min_angle = np.array([self.min_hdg, self.min_pitch], dtype=np.float32)
         self.action_space = spaces.Box(min_angle, max_angle, dtype=np.float32)
-        #  self.observation_space = spaces.Box(0, 255, [height, width, 3])  # rgb image with 3 values per position
         self.images = AirSimImages(self.sim)
+        dummy_obs = self.images.get_np_image(image_type=airsim.ImageType.Scene)
+        self.observation_space = spaces.Box(low=0, high=255, shape=dummy_obs.shape, dtype=dummy_obs.dtype)
 
         #  variables to keep track of step state
         self.graphic_update = 0
@@ -83,21 +84,20 @@ class SingleObservation(gym.Env):
 
     def step(self, action):
         #  only update the commands if just starting the simulation
-        observation = None
         self.desired_heading, self.desired_pitch = action
-        observation = self.images.get_np_image(airsim.ImageType.Scene)
+        obs = self.images.get_np_image(airsim.ImageType.Scene)
         # print(self.desired_pitch)
         graphic_i = self.relative_update * self.id
         graphic_update_old = self.graphic_update
         self.graphic_update = graphic_i // 1.0
         collision = self.sim.get_collision_info()
         done = False
-        reward = 0
+        rewards = 0
         try:
             if collision.has_collided:
                 done = True
                 if collision.object_name == "airport":
-                    reward = 1
+                    rewards = 1
         except TypeError:
             print("Collision object does not exist yet")
         # update airsim if required
@@ -109,7 +109,8 @@ class SingleObservation(gym.Env):
         self.ap.pitch_hold(self.desired_pitch)
         self.sim.run()  # update jsbsim
         self.id = self.id + 1
-        return observation, reward, done, {}
+        info = {}
+        return obs, rewards, done, info
 
     def reset(self):
         """
@@ -124,6 +125,9 @@ class SingleObservation(gym.Env):
         self.desired_heading = 0
         self.desired_pitch = 0
         self.sim.reinitialise()
+        obs = self.images.get_np_image(image_type=airsim.ImageType.Scene)
+
+        return obs
 
     def render(self, mode='human'):
         """

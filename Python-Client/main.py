@@ -88,6 +88,8 @@ class ClosedLoop:
         update_num = int(self.sim_time * self.sim_frequency_hz)  # how many simulation steps to update the simulation
         relative_update = self.airsim_frequency_hz / self.sim_frequency_hz  # rate between airsim and JSBSim
         graphic_update = 0
+        image = AirSimImages(self.sim)
+        image.get_np_image(image_type=airsim.ImageType.Scene)
         for i in range(update_num):
             graphic_i = relative_update * i
             graphic_update_old = graphic_update
