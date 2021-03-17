@@ -447,28 +447,32 @@ class X8Autopilot:
                 # Calculate h_plane to transition from straight line state to curved filet state
                 q = self.nav.unit_dir_vector(profile[self.track_id], profile[self.track_id + 1])
                 w = profile[self.track_id + 1]
-                z_point = (w[0] - ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q[0]),
-                           w[1] - ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q[1]))
-                cur = self.nav.get_local_pos()
-                h_point = (cur[0] - z_point[0], cur[1] - z_point[1])
-                h_val = (h_point[0] * q[0]) + (h_point[1] * q[1])
-                if h_val > 0:
-                    # Entered h plane transition to curved segment
-                    self.state = 1
+                try:
+                    z_point = (w[0] - ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q[0]),
+                               w[1] - ((radius / math.tan(filet_angle / 2 * (math.pi / 180.0))) * q[1]))
+                    cur = self.nav.get_local_pos()
+                    h_point = (cur[0] - z_point[0], cur[1] - z_point[1])
+                    h_val = (h_point[0] * q[0]) + (h_point[1] * q[1])
+                    if h_val > 0:
+                        # Entered h plane transition to curved segment
+                        self.state = 1
 
-                # Track straight line segment
-                bearing = self.nav.bearing() * 180.0 / math.pi
-                if bearing < 0:
-                    bearing = bearing + 360
-                distance = self.nav.distance()
-                off_tk_angle = bearing - self.track_bearing_in
-                if off_tk_angle > 180:
-                    off_tk_angle = off_tk_angle - 360.0
-                # scale response with distance from target
-                distance_to_go = self.nav.distance_to_go(distance, off_tk_angle)
-                if distance_to_go > 3000:
-                    distance_to_go = 3000
-                heading = (8 * 0.00033 * distance_to_go * off_tk_angle) + self.track_bearing_in
+                    # Track straight line segment
+                    bearing = self.nav.bearing() * 180.0 / math.pi
+                    if bearing < 0:
+                        bearing = bearing + 360
+                    distance = self.nav.distance()
+                    off_tk_angle = bearing - self.track_bearing_in
+                    if off_tk_angle > 180:
+                        off_tk_angle = off_tk_angle - 360.0
+                    # scale response with distance from target
+                    distance_to_go = self.nav.distance_to_go(distance, off_tk_angle)
+                    if distance_to_go > 3000:
+                        distance_to_go = 3000
+                    heading = (8 * 0.00033 * distance_to_go * off_tk_angle) + self.track_bearing_in
+                except ZeroDivisionError:
+                    heading = self.track_bearing_in  # TODO: find a way to deal with straight lines
+                    print("You have straight lines don't do this!")
                 self.heading_hold(heading)
                 self.altitude_hold(altitude_comm=w[2])
 

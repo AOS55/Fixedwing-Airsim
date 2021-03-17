@@ -4,7 +4,7 @@ import os
 import time
 from typing import Dict, Union
 import jsbsim_properties as prp
-from jsbsim_aircraft import Aircraft, cessna172P
+from jsbsim_aircraft import Aircraft, cessna172P, x8
 import math
 
 """Initially based upon https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/simulation.py by Gordon Rennie"""
@@ -77,7 +77,7 @@ class Simulation:
 
     def __init__(self,
                  sim_frequency_hz: float = 60.0,
-                 aircraft: Aircraft = cessna172P,
+                 aircraft: Aircraft = x8,
                  init_conditions: Dict[prp.Property, float] = None,
                  debug_level: int = 0):
         self.fdm = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)

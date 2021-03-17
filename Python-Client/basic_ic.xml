@@ -10,8 +10,8 @@
   <latitude unit="DEG">     0.0  </latitude>
   <phi unit="DEG">          0.0  </phi>  <!-- roll -->
   <theta unit="DEG">        0.0  </theta>  <!-- pitch -->
-  <psi unit="DEG">          0.0  </psi>  <!-- yaw -->
-  <altitude unit="FT">      1000.0 </altitude>
+  <psi unit="DEG">          300.0  </psi>  <!-- yaw -->
+  <altitude unit="FT">      20.0 </altitude>
   <elevation unit="FT">     0.00000001 </elevation> <!-- bug in JSBSim makes 0 cause NaNs -->
   <winddir unit ="DEG">     90.0 </winddir> <!-- wind direction -->
   <vwind unit ="FT/SEC">    0.0 </vwind> <!-- wind speed -->

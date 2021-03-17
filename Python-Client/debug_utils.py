@@ -182,7 +182,9 @@ class DebugGraphs:
         ax.set_title('Trace Plot')
         ax.set_xlabel('Latitude [degs]')
         ax.set_ylabel('Longitude [degs]')
-        ax.plot(self.long_abs, self.lat_abs)
+        long_m = [x * 111120.0 for x in self.long_abs]
+        lat_m = [x * 111120.0 for x in self.lat_abs]
+        ax.plot(long_m, lat_m)
         plt.savefig("Trace_plot")
         plt.show()
 
