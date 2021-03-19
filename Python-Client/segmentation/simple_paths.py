@@ -7,7 +7,10 @@ from autopilot import X8Autopilot
 from image_processing import AirSimImages
 from typing import Dict
 from report_diagrams import ReportGraphs
+import os
 import numpy as np
+import cv2
+import time
 
 
 class ImagePath:
@@ -54,7 +57,8 @@ class ImagePath:
                  sim_frequency_hz: float = 240.0,
                  aircraft: Aircraft = x8,
                  init_conditions: Dict['prp.Property', float] = None,
-                 debug_level: int = 0):
+                 debug_level: int = 0,
+                 dataset_name: str = 'default_dataset'):
         self.sim_time = sim_time
         self.display_graphics = display_graphics
         self.airspeed = airspeed
@@ -68,6 +72,7 @@ class ImagePath:
         self.report: ReportGraphs = ReportGraphs(self.sim)
         self.debug_aero: DebugFDM = DebugFDM(self.sim)
         self.over: bool = False
+        self.dataset_name = dataset_name
 
     def simulation_loop(self, profile: tuple) -> None:
         """
@@ -81,17 +86,16 @@ class ImagePath:
         graphic_update = 0
         image = AirSimImages(self.sim)
         image.get_np_image(image_type=airsim.ImageType.Scene)
+        self.setup_semantic_segmentation()
+        self.setup_dataset_directories(self.dataset_name)
+        seg_id, image_id = 0, 0
         for i in range(update_num):
-            # print(self.sim[prp.lat_geod_deg] * 111120.0)
-            # print(self.sim[prp.lng_geoc_deg] * 111120.0)
             graphic_i = relative_update * i
             graphic_update_old = graphic_update
             graphic_update = graphic_i // 1.0
-            #  print(graphic_i, graphic_update_old, graphic_update)
-            #  print(self.display_graphics)
             if self.display_graphics and graphic_update > graphic_update_old:
                 self.sim.update_airsim()
-                # print('update_airsim')
+                seg_id, image_id = self.store_image_set(self.dataset_name, seg_id, image_id)
             self.ap.airspeed_hold_w_throttle(self.airspeed)
             if not self.over:
                 self.over = self.ap.arc_path(profile, 200)
@@ -100,7 +104,6 @@ class ImagePath:
                 break
             self.get_graph_data()
             self.sim.run()
-            self.setup_semantic_segmentation()
 
     @staticmethod
     def rotate_vector(vec: list, angle: float) -> list:
@@ -162,7 +165,6 @@ class ImagePath:
 
         :return: unique colours of each image
         """
-
         # maps segmentationID to image rgb code
         seg_vals = {
             0: (0, 0, 0),
@@ -172,7 +174,6 @@ class ImagePath:
             23: (0, 5, 137),
             24: (90, 47, 155)
         }
-
         # maps labels to index
         colour_labels = {
             "building": 21,
@@ -180,7 +181,6 @@ class ImagePath:
             "sky": 0,
             "ground": 24
         }
-
         found_cafe = self.sim.client.simSetSegmentationObjectID("cafe_building_17", 24, True)
         found_hangar_1 = self.sim.client.simSetSegmentationObjectID("Hangar_1", 24, True)
         found_hangar_2 = self.sim.client.simSetSegmentationObjectID("Hangar_2", 24, True)
@@ -190,19 +190,63 @@ class ImagePath:
         found_tower = self.sim.client.simSetSegmentationObjectID("Tower_22", 24, True)
         found_landscape = self.sim.client.simSetSegmentationObjectID("lydd_landscape_3", 24, True)
 
-        # responses = self.sim.client.simGetImages([
-        #     airsim.ImageRequest("0", airsim.ImageType.Segmentation, True),  # depth in perspective projection
-        #     airsim.ImageRequest("0", airsim.ImageType.Segmentation, False, False)])
-        #     # scene vision image in uncompressed RGBA array
-        # for idx, response in enumerate(responses):
-        #     # print("Type %d, size %d" % (response.image_type, len(response.image_data_uint8)))
-        #     if len(response.image_data_uint8) != 0:
-        #         img1d = np.frombuffer(response.image_data_uint8, dtype=np.uint8)  # get numpy array
-        #         img_rgb = img1d.reshape(response.height, response.width, 3)  # reshape array to 3 channel image array
-        #         # H X W X 3
-        #         # print(f"red = {np.unique(img_rgb[:, :, 0], return_counts=True)}")  # red
-        #         # print(f"green = {np.unique(img_rgb[:, :, 1], return_counts=True)}")  # green
-        #         # print(f"blue = {np.unique(img_rgb[:, :, 2], return_counts=True)}")  # blue
+    @staticmethod
+    def setup_dataset_directories(dataset: str) -> None:
+        """
+        Setsup the directory structure to store a dataset
+
+        :param dataset:
+        :return:
+        """
+        dirname = os.path.dirname(__file__)
+        if not os.path.isdir(dirname + '/' + dataset):
+            os.mkdir(dirname + '/' + dataset)
+        if not os.path.isdir(dirname + '/' + dataset + '/metadata'):
+            os.mkdir(dirname + '/' + dataset + '/metadata')
+        if not os.path.isdir(dirname + '/' + dataset + '/images'):
+            os.mkdir(dirname + '/' + dataset + '/images')
+        if not os.path.isdir(dirname + '/' + dataset + '/segmentation_masks'):
+            os.mkdir(dirname + '/' + dataset + '/segmentation_masks')
+
+    def store_image_set(self, dataset: str, seg_id, image_id):
+        """
+        Stores a semantic image mask with a regular image as a png
+
+        :dataset: the name of the directory where the dataset is to be stored
+        :seg_id: the id of the segmentation mask
+        :image_id: the id of the image mask
+        :return: the int id used on the images and segmentation masks
+        """
+        dirname = os.path.dirname(__file__)
+        seg_path = dirname + '/' + dataset + '/segmentation_masks'
+        image_path = dirname + '/' + dataset + '/images'
+
+        responses_seg = self.sim.client.simGetImages([
+            airsim.ImageRequest("0", airsim.ImageType.Segmentation, True),  # depth in perspective projection
+            airsim.ImageRequest("0", airsim.ImageType.Segmentation, False, False),
+        ])
+        for idx, response in enumerate(responses_seg):
+            if len(response.image_data_uint8) != 0:
+                # print(f"{response.width}x{response.height}")
+                img1d = np.frombuffer(response.image_data_uint8, dtype=np.uint8)  # get numpy array
+                img_rgb = img1d.reshape(response.height, response.width, 3)  # reshape array to 3 channel image array
+                cur_seg = os.path.join(seg_path, str(seg_id) + ".png")
+                if os.path.exists(cur_seg):
+                    seg_id += 1
+                    # TODO: seg method just skips forward one would be better go to end of images
+                cv2.imwrite(os.path.join(seg_path, str(seg_id) + ".png"), img_rgb)
+        responses_image = self.sim.client.simGetImages([
+            airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)])
+        for idx, response in enumerate(responses_image):
+            if len(response.image_data_uint8) != 0:
+                img1d = np.frombuffer(response.image_data_uint8, dtype=np.uint8)  # get numpy array
+                img_rgb = img1d.reshape(response.height, response.width, 3)  # reshape array to 3 channel image array
+                cur_image = os.path.join(image_path, str(image_id) + ".png")
+                if os.path.exists(cur_image):
+                    image_id += 1
+                    # TODO: image method just skips forward one would be better go to end of images
+                cv2.imwrite(os.path.join(image_path, str(image_id) + ".png"), img_rgb)
+        return seg_id, image_id
 
 
 def simulate() -> None:
@@ -222,7 +266,8 @@ def simulate() -> None:
         prp.all_engine_running: -1
     }
 
-    env = ImagePath(sim_time=750, display_graphics=True, init_conditions=runway_start, airsim_frequency_hz=24)
+    env = ImagePath(sim_time=750, display_graphics=True, init_conditions=runway_start, airsim_frequency_hz=0.2,
+                    dataset_name="test_set")
     rectangle = ((0, 0, 0), (2000, 0, 100), (2000, 2000, 100), (-2000, 2000, 100), (-2000, 0, 100), (2000, 0, 20),
                  (2000, 2000, 20), (-2000, 2000, 20))
     angle = -60.0
