@@ -87,7 +87,7 @@ class RunwaysDataset(Dataset):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         input_tensor = preprocess(input_image)
-        return input_tensor.unsqueeze(0)  # create a mini-batch as expected by the model
+        return input_tensor
 
 
 if __name__ == '__main__':
@@ -100,7 +100,6 @@ if __name__ == '__main__':
         tuple([78, 53, 104]): 1,
         tuple([155, 47, 90]): 2
     }
-
     test_set = RunwaysDataset(dirname, category_rgb_vals)
 
     test_dataloader = DataLoader(test_set, batch_size=4, shuffle=False, num_workers=20)

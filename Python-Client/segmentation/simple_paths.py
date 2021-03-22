@@ -267,7 +267,7 @@ def simulate() -> None:
     }
 
     env = ImagePath(sim_time=750, display_graphics=True, init_conditions=runway_start, airsim_frequency_hz=0.2,
-                    dataset_name="test_set")
+                    dataset_name="tom-showcase")
     rectangle = ((0, 0, 0), (2000, 0, 100), (2000, 2000, 100), (-2000, 2000, 100), (-2000, 0, 100), (2000, 0, 20),
                  (2000, 2000, 20), (-2000, 2000, 20))
     angle = -60.0

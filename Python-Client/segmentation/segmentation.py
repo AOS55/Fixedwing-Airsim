@@ -6,6 +6,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # instantiate deeplabv3_resnet101 with pretrained values
 deeplab_model = torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101', pretrained=False, num_classes=3).to(
     device).eval()
+# deeplab_model = torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101', pretrained=False).to(device).eval()
 
 from torchvision import transforms
 from PIL import Image
@@ -15,14 +16,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dataset_manager import RunwaysDataset
 from torch.utils.data import Dataset, DataLoader
+import wandb
 
 
-class SemantcSegmentation(nn.Module):
+class SemanticSegmentation(nn.Module):
     """
     Class to train and use a Semantic Segmentation Network
     """
     def __init__(self, model):
-        super(SemantcSegmentation, self).__init__()
+        super(SemanticSegmentation, self).__init__()
         self.model = model
 
     def forward(self, input_batch):
@@ -36,9 +38,9 @@ class SemantcSegmentation(nn.Module):
             input_batch = input_batch.to('cuda')
             self.model.to('cuda')
         with torch.no_grad():
-            output = self.model(input_batch)['out'][0]
+            output = self.model(input_batch)['out'].to(device)
         return output
-        return output.argmax(0)  # returns the most likely label in a given region
+        # return output.argmax(0)  # returns the most likely label in a given region
 
 
 def train_loop(dataloader, model, loss_fn, optimizer) -> None:
@@ -48,8 +50,7 @@ def train_loop(dataloader, model, loss_fn, optimizer) -> None:
         y = sample_batched['mask']
         # Compute prediction and loss
         pred = model(X)
-        print(pred.shape)
-        print(y.shape)
+        print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
 
         loss = loss_fn(pred, y)
 
@@ -61,14 +62,15 @@ def train_loop(dataloader, model, loss_fn, optimizer) -> None:
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+            wandb.log({"loss": loss})
 
 
-def test_loop(data_loader, model, loss_fn):
-    size = len(data_loader.dataset)
+def test_loop(dataloader, model, loss_fn):
+    size = len(dataloader)
     test_loss, correct = 0, 0
 
     with torch.no_grad():
-        for sample_batched in data_loader:
+        for i_batch, sample_batched in enumerate(dataloader):
             X = sample_batched['image']
             y = sample_batched['mask']
             pred = model(X)
@@ -80,7 +82,7 @@ def test_loop(data_loader, model, loss_fn):
     print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}% Avg loss: {test_loss:>8f} \n")
 
 
-def initilaize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 20):
+def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1):
     """
     Generates a dataset object for to train or test the model
 
@@ -93,10 +95,65 @@ def initilaize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     dirname = os.path.dirname(__file__)  # get the location of the root directory
     dirname = os.path.join(dirname, dataset_name)
     dataset = RunwaysDataset(dirname, labels)
-    DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return dataset
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return dataloader
+
+
+def model_pipeline(hyper_parameters, network_type):
+    """
+    Procedure to make train and test the CNN based upon the predefined hyperparameters
+    :param hyper_parameters:
+    :return:
+    """
+    with wandb.init(project="runway-segmentation", config=hyper_parameters):
+        config = wandb.config  # log hyperparameters from config dict to wandb
+        model, dataloader, criterion, optimizer = model_maker(config, network_type)  # make model with optimizer
+        # and data
+        # print(model)
+        train_loop(dataloader, model, criterion, optimizer)  # train the model
+        test_loop(dataloader, model, criterion)  # test the model
+    return model
+
+
+def model_maker(config, network_type):
+    """
+    Setup a CNN
+    :param config: the hyper-parameters to encode the values with
+    :return: nn.model, dataloader, loss_fn, optimizer with hyper-parameters
+    """
+    # Generate data
+    dataloader = initialize_dataloader(config.dataset, category_rgb_vals, config.batch_size)
+
+    # Setup model
+    model = SemanticSegmentation(network_type)
+    wandb.watch(model)
+
+    # Setup loss function and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=config.learning_rate)
+
+    return model, dataloader, criterion, optimizer
+
 
 if __name__ == '__main__':
+
+    # wandb.init(project="segmentation-tests")  # login to weights and biases
+
+    default_config = dict(
+        epochs=20,
+        learning_rate=1e-3,
+        batch_size=1,
+        dataset="test_set",
+        classes=3,
+    )
+    category_rgb_vals = {
+        tuple([0, 0, 0]): 0,
+        tuple([78, 53, 104]): 1,
+        tuple([155, 47, 90]): 2
+    }
+    # deeplab_network = SemanticSegmentation(deeplab_model)
+    #
+    # model_pipeline(default_config, deeplab_network)
 
     category_rgb_vals = {
             tuple([0, 0, 0]): 0,
@@ -112,21 +169,22 @@ if __name__ == '__main__':
 
     # Hyper-parameters
     learning_rate = 1e-3
-    batch_size = 4
+    batch_size = 1
     epochs = 20
 
     # Initialize the network
-    test_network = SemantcSegmentation(deeplab_model)
+    deeplab_network = SemanticSegmentation(deeplab_model)
+    # wandb.watch(test_network)
 
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
-    sgd_optimizer = torch.optim.SGD(test_network.parameters(), lr=learning_rate)
+    sgd_optimizer = torch.optim.SGD(deeplab_network.parameters(), lr=learning_rate)
 
     # Initialize the datasets
-    test_set = initilaize_dataloader("test_set", category_rgb_vals, batch_size)
+    test_set = initialize_dataloader("test_set", category_rgb_vals, batch_size)
 
     # train NN
-    train_loop(test_set, test_network, cross_entropy_loss_fn, sgd_optimizer)
+    train_loop(test_set, deeplab_network, cross_entropy_loss_fn, sgd_optimizer)
 
 
 # # Generate colours for images
