@@ -94,7 +94,10 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     :return:
     """
     dirname = os.path.dirname(__file__)  # get the location of the root directory
-    dirname = os.path.join(dirname, dataset_name)
+    dataset = "tom-showcase"
+    dirname = os.path.join(dirname, '../..')
+    dirname = os.path.join(dirname, 'data/segmentation-datasets')
+    dirname = os.path.join(dirname, dataset)
     dataset = RunwaysDataset(dirname, labels)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return dataloader
@@ -182,7 +185,7 @@ if __name__ == '__main__':
     sgd_optimizer = torch.optim.SGD(deeplab_network.parameters(), lr=learning_rate)
 
     # Initialize the datasets
-    test_set = initialize_dataloader("test_set", category_rgb_vals, batch_size)
+    test_set = initialize_dataloader("tom-showcase", category_rgb_vals, batch_size)
 
     # train NN
     train_loop(test_set, deeplab_network, cross_entropy_loss_fn, sgd_optimizer)

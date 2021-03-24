@@ -93,7 +93,7 @@ class RunwaysDataset(Dataset):
 if __name__ == '__main__':
 
     dirname = os.path.dirname(__file__)  # get the location of the root directory
-    dataset = "test_set"
+    dataset = "tom-showcase"
     dirname = os.path.join(dirname, '../..')
     dirname = os.path.join(dirname, 'data/segmentation-datasets')
     dirname = os.path.join(dirname, dataset)
