@@ -1,5 +1,8 @@
 *.sh
 *.jpg
 *.png
+*.pyc
+*.iml
+
+
 /venv/
-/src/segmentation/dog.jpg
