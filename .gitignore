@@ -1,0 +1,10 @@
+*.sh
+*.jpg
+*.png
+*.pyc
+*.iml
+
+
+/venv/
+.*
+/__pycache__/
