@@ -94,6 +94,8 @@ if __name__ == '__main__':
 
     dirname = os.path.dirname(__file__)  # get the location of the root directory
     dataset = "test_set"
+    dirname = os.path.join(dirname, '../..')
+    dirname = os.path.join(dirname, 'data/segmentation-datasets')
     dirname = os.path.join(dirname, dataset)
     category_rgb_vals = {
         tuple([0, 0, 0]): 0,
