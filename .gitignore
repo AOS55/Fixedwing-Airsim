@@ -1,0 +1,5 @@
+*.sh
+*.jpg
+*.png
+/venv/
+/src/segmentation/dog.jpg
