@@ -35,10 +35,10 @@ class SemanticSegmentation(nn.Module):
         :return:
         """
         if torch.cuda.is_available():
-            input_batch = input_batch.to('cuda')
-            self.model.to('cuda')
-        with torch.no_grad():
-            output = self.model(input_batch)['out'].to(device)
+            input_batch = input_batch.to(device)
+            self.model.to(device)
+        # with torch.no_grad():
+        output = self.model(input_batch)['out'].to(device)
         return output
         # return output.argmax(0)  # returns the most likely label in a given region
 
@@ -50,6 +50,7 @@ def train_loop(dataloader, model, loss_fn, optimizer) -> None:
         y = sample_batched['mask']
         # Compute prediction and loss
         pred = model(X)
+        y = y.to(device)
         print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
 
         loss = loss_fn(pred, y)
