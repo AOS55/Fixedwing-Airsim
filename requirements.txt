@@ -58,7 +58,7 @@ subprocess32==3.5.4
 tensorboard==2.4.1
 tensorboard-plugin-wit==1.8.0
 threadpoolctl==2.1.0
-torch==1.8.0+cu111
+# torch==1.8.0+cu111
 torchsummary==1.5.1
 torchvision>=0.2.2.post3
 tornado>=4.5.3

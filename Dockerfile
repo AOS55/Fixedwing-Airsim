@@ -1,4 +1,4 @@
-FROM python:3.8.8
+FROM pytorch/pytorch
 
 WORKDIR /app
 
@@ -8,10 +8,10 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-RUN ./python-test.sh
+# RUN ./src/HPC_runs/python-test.sh
 
 # ENV PORT=8080
 
 # EXPOSE 8080
 
-# CMD 
+CMD python src/segmentation/deeplabv3_example.py
