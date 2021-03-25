@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
-import jsbsim_properties as prp
+import src.jsbsim_properties as prp
 import math
 
 

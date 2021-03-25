@@ -109,8 +109,6 @@ def create_fdm(sandbox, pm=None):
     :param pm: adds a relative path to the default sandbox jsbsim directory
     :return: the flight dynamic model
     """
-
-
     _fdm = jsbsim.FGFDMExec(os.path.join(sandbox(), ''), pm)
     print('FDM located at:', os.path.join(sandbox(), ''))
     path = sandbox.path_to_jsbsim_file()
