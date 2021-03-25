@@ -1,16 +1,18 @@
 import airsim
-from jsbsim_simulator import Simulation
-from jsbsim_aircraft import Aircraft, cessna172P, ball, x8
-from debug_utils import *
-import jsbsim_properties as prp
-from autopilot import X8Autopilot
-from image_processing import AirSimImages
+from src.jsbsim_simulator import Simulation
+from src.jsbsim_aircraft import Aircraft, cessna172P, ball, x8
+from src.debug_utils import *
+import src.navigation as navigation
+import src.jsbsim_properties as prp
+from src.autopilot import X8Autopilot
+from src.image_processing import AirSimImages
 from typing import Dict
-from report_diagrams import ReportGraphs
+from src.report_diagrams import ReportGraphs
 import os
 import numpy as np
 import cv2
 import time
+import json
 
 
 class ImagePath:
@@ -96,6 +98,7 @@ class ImagePath:
             if self.display_graphics and graphic_update > graphic_update_old:
                 self.sim.update_airsim()
                 seg_id, image_id = self.store_image_set(self.dataset_name, seg_id, image_id)
+                self.store_flight_data(self.dataset_name, image_id)
             self.ap.airspeed_hold_w_throttle(self.airspeed)
             if not self.over:
                 self.over = self.ap.arc_path(profile, 200)
@@ -196,30 +199,37 @@ class ImagePath:
         Setsup the directory structure to store a dataset
 
         :param dataset:
-        :return:
+        :return: None
         """
-        dirname = os.path.dirname(__file__)
+        dirname = os.path.dirname(__file__)  # get the location of the root directory
+        dirname = os.path.join(dirname, '../..')  # move out of segmentation source directory
+        dirname = os.path.join(dirname, 'data/segmentation-datasets')  # go into segmentation-dataset dir
         if not os.path.isdir(dirname + '/' + dataset):
             os.mkdir(dirname + '/' + dataset)
         if not os.path.isdir(dirname + '/' + dataset + '/metadata'):
             os.mkdir(dirname + '/' + dataset + '/metadata')
+        if not os.path.isdir(dirname + '/' + dataset + '/flight_data'):
+            os.mkdir(dirname + '/' + dataset + '/flight_data')
         if not os.path.isdir(dirname + '/' + dataset + '/images'):
             os.mkdir(dirname + '/' + dataset + '/images')
         if not os.path.isdir(dirname + '/' + dataset + '/segmentation_masks'):
             os.mkdir(dirname + '/' + dataset + '/segmentation_masks')
 
-    def store_image_set(self, dataset: str, seg_id, image_id):
+    def store_image_set(self, dataset: str, seg_id: int, image_id: int):
         """
         Stores a semantic image mask with a regular image as a png
 
         :dataset: the name of the directory where the dataset is to be stored
         :seg_id: the id of the segmentation mask
-        :image_id: the id of the image mask
+        :image_id: the id of the image
         :return: the int id used on the images and segmentation masks
         """
-        dirname = os.path.dirname(__file__)
-        seg_path = dirname + '/' + dataset + '/segmentation_masks'
-        image_path = dirname + '/' + dataset + '/images'
+        dirname = os.path.dirname(__file__)  # get the location of the root directory
+        dirname = os.path.join(dirname, '../..')  # move out of segmentation source directory
+        dirname = os.path.join(dirname, 'data/segmentation-datasets')  # go into segmentation-dataset dir
+        dirname = os.path.join(dirname, dataset)  # go into segmentation specific dataset
+        seg_path = os.path.join(dirname, 'segmentation_masks')  # make a path to segmentation_masks dir specifically
+        image_path = os.path.join(dirname, 'images')  # make a path to images dir specifically
 
         responses_seg = self.sim.client.simGetImages([
             airsim.ImageRequest("0", airsim.ImageType.Segmentation, True),  # depth in perspective projection
@@ -231,8 +241,9 @@ class ImagePath:
                 img1d = np.frombuffer(response.image_data_uint8, dtype=np.uint8)  # get numpy array
                 img_rgb = img1d.reshape(response.height, response.width, 3)  # reshape array to 3 channel image array
                 cur_seg = os.path.join(seg_path, str(seg_id) + ".png")
-                if os.path.exists(cur_seg):
+                while os.path.exists(cur_seg):
                     seg_id += 1
+                    cur_seg = os.path.join(seg_path, str(seg_id) + ".png")
                     # TODO: seg method just skips forward one would be better go to end of images
                 cv2.imwrite(os.path.join(seg_path, str(seg_id) + ".png"), img_rgb)
         responses_image = self.sim.client.simGetImages([
@@ -242,13 +253,55 @@ class ImagePath:
                 img1d = np.frombuffer(response.image_data_uint8, dtype=np.uint8)  # get numpy array
                 img_rgb = img1d.reshape(response.height, response.width, 3)  # reshape array to 3 channel image array
                 cur_image = os.path.join(image_path, str(image_id) + ".png")
-                if os.path.exists(cur_image):
+                while os.path.exists(cur_image):
                     image_id += 1
+                    cur_image = os.path.join(image_path, str(image_id) + ".png")
                     # TODO: image method just skips forward one would be better go to end of images
                 cv2.imwrite(os.path.join(image_path, str(image_id) + ".png"), img_rgb)
         return seg_id, image_id
 
 
+    def store_flight_data(self, dataset: str, flight_id: int) -> None:
+        """
+        Store flight data from the simulation as a JSON object
+
+        :dataset: the name of the directory where the dataset is to be stored
+        :flight_data_id: the index of the JSON object as related to the image.
+        :return: None
+        """
+        dirname = os.path.dirname(__file__)  # get the location of the root directory
+        dirname = os.path.join(dirname, '../..')  # move out of segmentation source directory
+        dirname = os.path.join(dirname, 'data/segmentation-datasets')  # go into segmentation-dataset dir
+        dirname = os.path.join(dirname, dataset)  # go into segmentation specific dataset
+        flight_path = os.path.join(dirname, 'flight_data')  # make a path to flight_data dir specifically
+
+        self.nav = navigation.LocalNavigation(self.sim)
+        flight_dict = {
+            'image_id': flight_id,
+            'time': self.sim.get_time(),
+            'lat_m': self.nav.get_local_pos()[0],
+            'long_m': self.nav.get_local_pos()[1],
+            'alt': self.sim[prp.altitude_sl_ft],
+            'pitch': self.sim.get_local_orientation()[0],
+            'roll': self.sim.get_local_orientation()[1],
+            'yaw': self.sim.get_local_orientation()[2],
+            'u': self.sim[prp.u_fps] * 0.3048,
+            'v': self.sim[prp.v_fps] * 0.3048,
+            'w': self.sim[prp.w_fps] * 0.3048,
+            'p': self.sim[prp.p_radps],
+            'q': self.sim[prp.q_radps],
+            'r': self.sim[prp.r_radps],
+            'airspeed': self.sim[prp.airspeed],
+            'alpha': self.sim[prp.alpha],
+            'aileron_combined': self.sim[prp.aileron_combined_rad],
+            'elevator': self.sim[prp.elevator_rad],
+            'throttle': self.sim[prp.throttle]
+        }
+        json_file_name = os.path.join(flight_path, str(flight_id) + ".json")
+        with open(json_file_name, 'w') as json_file:
+            json.dump(flight_dict, json_file)
+
+        
 def simulate() -> None:
     """Runs the JSBSim and AirSim in the loop when executed as a script
 
@@ -267,7 +320,7 @@ def simulate() -> None:
     }
 
     env = ImagePath(sim_time=750, display_graphics=True, init_conditions=runway_start, airsim_frequency_hz=0.2,
-                    dataset_name="tom-showcase")
+                    dataset_name="fd-test")
     rectangle = ((0, 0, 0), (2000, 0, 100), (2000, 2000, 100), (-2000, 2000, 100), (-2000, 0, 100), (2000, 0, 20),
                  (2000, 2000, 20), (-2000, 2000, 20))
     angle = -60.0
