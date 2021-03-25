@@ -8,6 +8,7 @@ from src.autopilot import X8Autopilot
 from src.image_processing import AirSimImages
 from typing import Dict
 from src.report_diagrams import ReportGraphs
+from datetime import datetime
 import os
 import numpy as np
 import cv2
@@ -76,11 +77,16 @@ class ImagePath:
         self.over: bool = False
         self.dataset_name = dataset_name
 
-    def simulation_loop(self, profile: tuple) -> None:
+    def simulation_loop(self, profile: tuple, angle: float, alt: float, circuit_radius: float, circuit_type: str) -> \
+            None:
         """
         Runs the closed loop simulation and updates to airsim simulation based on the class level definitions
 
         :param profile: a tuple of tuples of the aircraft's profile in (lat [m], long [m], alt [feet])
+        :param angle: angle relative to origin [degrees]
+        :param alt: altitude above sea level [feet]
+        :param circuit_radius: radius of circuit flown [m]
+        :param circuit_type: the name of the type of circuit flown
         :return: None
         """
         update_num = int(self.sim_time * self.sim_frequency_hz)  # how many simulation steps to update the simulation
@@ -99,6 +105,7 @@ class ImagePath:
                 self.sim.update_airsim()
                 seg_id, image_id = self.store_image_set(self.dataset_name, seg_id, image_id)
                 self.store_flight_data(self.dataset_name, image_id)
+                self.make_metadata_json(self.dataset_name, image_id, angle, alt, circuit_radius, circuit_type)
             self.ap.airspeed_hold_w_throttle(self.airspeed)
             if not self.over:
                 self.over = self.ap.arc_path(profile, 200)
@@ -260,13 +267,12 @@ class ImagePath:
                 cv2.imwrite(os.path.join(image_path, str(image_id) + ".png"), img_rgb)
         return seg_id, image_id
 
-
     def store_flight_data(self, dataset: str, flight_id: int) -> None:
         """
         Store flight data from the simulation as a JSON object
 
-        :dataset: the name of the directory where the dataset is to be stored
-        :flight_data_id: the index of the JSON object as related to the image.
+        :param dataset: the name of the directory where the dataset is to be stored
+        :param flight_id: the index of the JSON object as related to the image
         :return: None
         """
         dirname = os.path.dirname(__file__)  # get the location of the root directory
@@ -301,6 +307,50 @@ class ImagePath:
         with open(json_file_name, 'w') as json_file:
             json.dump(flight_dict, json_file)
 
+    def make_metadata_json(self, dataset: str, metadata_id: int, angle: float, alt: float, circuit_radius: float,
+                           circuit_type: str) -> None:
+        """
+        Make and store a document containing the metadata for each image pair stored in the file system
+
+        :param dataset: the name of the directory where the dataset is to be stored
+        :param metadata_id: the index of the JSON object as related to the image
+        :param angle: angle relative to origin [degrees]
+        :param alt: altitude above sea level [feet]
+        :param circuit_radius: radius of circuit flown [m]
+        :param circuit_type: the name of the type of circuit flown
+        :return: None
+        """
+        dirname = os.path.dirname(__file__)  # get the location of the root directory
+        dirname = os.path.join(dirname, '../..')  # move out of segmentation source directory
+        dirname = os.path.join(dirname, 'data/segmentation-datasets')  # go into segmentation-dataset dir
+        dirname = os.path.join(dirname, dataset)  # go into segmentation specific dataset
+        metadata_path = os.path.join(dirname, 'metadata')  # make a path to flight_data dir specifically
+
+        rel_dataset = os.path.join('/data/segmentation-datasets', dataset)
+        cur_seg = os.path.join(rel_dataset + "/segmentation_masks/" + str(metadata_id) + ".png")  # rel path from root
+        # to seg mask
+        cur_image = os.path.join(rel_dataset + "/images/" + str(metadata_id) + ".png")  # rel path from root to image
+        cur_fd = os.path.join(rel_dataset + "/flight_data/" + str(metadata_id) + ".json")  # rel path from root to
+        # flight data
+
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        metadata_dict = {
+            'image_id': metadata_id,
+            'sim_time': self.sim.get_time(),
+            'mask_loc': cur_seg,
+            'image_loc': cur_image,
+            'fd_loc': cur_fd,
+            'utc_time': current_time,
+            'plan_angle': angle,
+            'plan_altitude': alt,
+            'circuit_radius': circuit_radius,
+            'circuit_type': circuit_type
+        }
+        json_file_name = os.path.join(metadata_path, str(metadata_id) + ".json")
+        with open(json_file_name, 'w') as json_file:
+            json.dump(metadata_dict, json_file)
+        
         
 def simulate() -> None:
     """Runs the JSBSim and AirSim in the loop when executed as a script
@@ -320,7 +370,7 @@ def simulate() -> None:
     }
 
     env = ImagePath(sim_time=750, display_graphics=True, init_conditions=runway_start, airsim_frequency_hz=0.2,
-                    dataset_name="fd-test")
+                    dataset_name="meta-test")
     rectangle = ((0, 0, 0), (2000, 0, 100), (2000, 2000, 100), (-2000, 2000, 100), (-2000, 0, 100), (2000, 0, 20),
                  (2000, 2000, 20), (-2000, 2000, 20))
     angle = -60.0
@@ -334,7 +384,7 @@ def simulate() -> None:
     origin = [env.sim[prp.initial_latitude_geod_deg] * 111120.0, env.sim[prp.initial_longitude_geoc_deg] * 111120.0]
     path = env.transform_path(tight_circuit, angle, origin)
     print(path)
-    env.simulation_loop(path)
+    env.simulation_loop(path, angle=angle, alt=alt, circuit_radius=circuit_radius, circuit_type="tight_circuit")
     env.generate_figures()
     print("Simulation Ended")
 
