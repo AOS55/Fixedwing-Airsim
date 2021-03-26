@@ -353,7 +353,8 @@ class ImagePath:
         
         
 def simulate() -> None:
-    """Runs the JSBSim and AirSim in the loop when executed as a script
+    """
+    Runs the JSBSim and AirSim in the loop when executed as a script
 
     :return: None
     """
