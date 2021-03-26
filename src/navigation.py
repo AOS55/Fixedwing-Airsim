@@ -1,5 +1,5 @@
 import math
-import src.jsbsim_properties as prp
+import jsbsim_properties as prp
 import statistics
 
 

@@ -1,6 +1,6 @@
 import math
 import collections
-from src.jsbsim_utils import AttributeFormatter
+from jsbsim_utils import AttributeFormatter
 
 
 """

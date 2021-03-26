@@ -3,8 +3,8 @@ import airsim
 import os
 import time
 from typing import Dict, Union
-import src.jsbsim_properties as prp
-from src.jsbsim_aircraft import Aircraft, cessna172P, x8
+import jsbsim_properties as prp
+from jsbsim_aircraft import Aircraft, cessna172P, x8
 import math
 
 """Initially based upon https://github.com/Gor-Ren/gym-jsbsim/blob/master/gym_jsbsim/simulation.py by Gordon Rennie"""

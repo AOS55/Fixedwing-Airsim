@@ -2,7 +2,7 @@ import airsim
 import numpy as np
 # import cv2 as cv
 import torch
-from src.jsbsim_simulator import Simulation
+from jsbsim_simulator import Simulation
 from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt

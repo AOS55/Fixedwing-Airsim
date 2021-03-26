@@ -1,9 +1,9 @@
 from simple_pid import PID
-import src.jsbsim_properties as prp
-from src.jsbsim_simulator import Simulation
+import jsbsim_properties as prp
+from jsbsim_simulator import Simulation
 from scipy import interpolate
 import math
-from src.navigation import LocalNavigation
+from navigation import LocalNavigation
 import control
 
 

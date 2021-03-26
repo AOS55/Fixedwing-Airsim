@@ -14,7 +14,7 @@ from torchvision import datasets
 from torch import nn
 import numpy as np
 import matplotlib.pyplot as plt
-from dataset_manager import RunwaysDataset
+from segmentation.dataset_manager import RunwaysDataset
 from torch.utils.data import Dataset, DataLoader
 import wandb
 

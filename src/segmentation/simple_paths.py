@@ -1,13 +1,13 @@
 import airsim
-from src.jsbsim_simulator import Simulation
-from src.jsbsim_aircraft import Aircraft, cessna172P, ball, x8
-from src.debug_utils import *
-import src.navigation as navigation
-import src.jsbsim_properties as prp
-from src.autopilot import X8Autopilot
-from src.image_processing import AirSimImages
+from jsbsim_simulator import Simulation
+from jsbsim_aircraft import Aircraft, cessna172P, ball, x8
+from debug_utils import *
+import navigation as navigation
+import jsbsim_properties as prp
+from autopilot import X8Autopilot
+from image_processing import AirSimImages
 from typing import Dict
-from src.report_diagrams import ReportGraphs
+from report_diagrams import ReportGraphs
 from datetime import datetime
 import os
 import numpy as np
