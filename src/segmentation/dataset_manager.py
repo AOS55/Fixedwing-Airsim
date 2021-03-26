@@ -104,7 +104,7 @@ if __name__ == '__main__':
     }
     test_set = RunwaysDataset(dirname, category_rgb_vals)
 
-    test_dataloader = DataLoader(test_set, batch_size=4, shuffle=False, num_workers=20)
+    test_dataloader = DataLoader(test_set, batch_size=2, shuffle=False, num_workers=10)
     for i_batch, sample_batched in enumerate(test_dataloader):
         print(i_batch, sample_batched['image'].size(),
               sample_batched['mask'].size())
