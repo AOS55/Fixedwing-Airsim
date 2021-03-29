@@ -12,4 +12,4 @@ RUN echo "export PYTHONPATH="/app/src"" >> ~/.bashrc
 
 RUN /bin/bash -c "source ~/.bashrc"
 
-CMD ["python", "src/segmentation/dataset_manager.py"]
+CMD ["python", "src/segmentation/segmentation.py"]
