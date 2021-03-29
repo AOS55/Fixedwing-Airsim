@@ -3,7 +3,7 @@ import torch
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# instantiate deeplabv3_resnet101 with pretrained values
+# instantiate deeplabv3_resnet101
 deeplab_model = torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101', pretrained=False, num_classes=3).to(
     device).eval()
 # deeplab_model = torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101', pretrained=False).to(device).eval()
@@ -16,7 +16,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dataset_manager import RunwaysDataset, split_dataset
 from torch.utils.data import Dataset, DataLoader
-# import wandb
 
 
 class SemanticSegmentation(nn.Module):
@@ -105,20 +104,12 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     return test_set, train_set
 
 
-# def model_pipeline(hyper_parameters, network_type):
-#     """
-#     Procedure to make train and test the CNN based upon the predefined hyperparameters
-#     :param hyper_parameters:
-#     :return:
-#     """
-#     with wandb.init(project="runway-segmentation", config=hyper_parameters):
-#         config = wandb.config  # log hyperparameters from config dict to wandb
-#         model, dataloader, criterion, optimizer = model_maker(config, network_type)  # make model with optimizer
-#         # and data
-#         # print(model)
-#         train_loop(dataloader, model, criterion, optimizer)  # train the model
-#         test_loop(dataloader, model, criterion)  # test the model
-#     return model
+def model_pipeline(hyper_parameters, network_type):
+    """
+    Procedure to make train and test the CNN based upon the predefined hyperparameters
+    :param hyper_parameters:
+    :return:
+    """
 
 
 def model_maker(config, network_type):
@@ -132,7 +123,6 @@ def model_maker(config, network_type):
 
     # Setup model
     model = SemanticSegmentation(network_type)
-    # wandb.watch(model)
 
     # Setup loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -158,8 +148,6 @@ def save_model(model, epoch, optimizer, run_name: str) -> None:
 
 if __name__ == '__main__':
 
-    # wandb.init(project="segmentation-tests")  # login to weights and biases
-
     default_config = dict(
         epochs=20,
         learning_rate=1e-3,
@@ -172,9 +160,6 @@ if __name__ == '__main__':
         tuple([78, 53, 104]): 1,
         tuple([155, 47, 90]): 2
     }
-    # deeplab_network = SemanticSegmentation(deeplab_model)
-    #
-    # model_pipeline(default_config, deeplab_network)
 
     category_rgb_vals = {
             tuple([0, 0, 0]): 0,
@@ -195,7 +180,6 @@ if __name__ == '__main__':
 
     # Initialize the network
     deeplab_network = SemanticSegmentation(deeplab_model)
-    # wandb.watch(test_network)
 
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
@@ -210,19 +194,3 @@ if __name__ == '__main__':
         test_loop(test_set, deeplab_network, cross_entropy_loss_fn)
         save_model(deeplab_network, e, sgd_optimizer, run_name=run_name)
     print("Done!")
-
-
-# # Generate colours for images
-# palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** 21 - 1])
-# colors = torch.as_tensor([i for i in range(3)])[:, None] * palette
-# colors = (colors % 255).numpy().astype("uint8")
-#
-# # plot the semantic segmentation predictions of 21 classes in each color
-# r = Image.fromarray(tensor_mask.byte().cpu().numpy()).resize(input_mask.size)
-# r.putpalette(colors)
-#
-# plt.imshow(r)
-# plt.show()
-
-# segmentation_model = models.seg.deeplabv3_resnet101(pretrained=True).to(device).eval()
-# print(f'Number of trainable weights in the segmentation model: {model}')
