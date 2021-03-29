@@ -4,6 +4,7 @@
 *.pyc
 *.iml
 
+runs
 data
 /venv/
 .*
