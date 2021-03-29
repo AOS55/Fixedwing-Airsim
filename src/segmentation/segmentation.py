@@ -14,9 +14,9 @@ from torchvision import datasets
 from torch import nn
 import numpy as np
 import matplotlib.pyplot as plt
-from segmentation.dataset_manager import RunwaysDataset
+from dataset_manager import RunwaysDataset, split_dataset
 from torch.utils.data import Dataset, DataLoader
-import wandb
+# import wandb
 
 
 class SemanticSegmentation(nn.Module):
@@ -63,7 +63,7 @@ def train_loop(dataloader, model, loss_fn, optimizer) -> None:
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
-            wandb.log({"loss": loss})
+            # wandb.log({"loss": loss})
 
 
 def test_loop(dataloader, model, loss_fn):
@@ -94,29 +94,31 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     :return:
     """
     dirname = os.path.dirname(__file__)  # get the location of the root directory
-    dataset = "tom-showcase"
+    dataset = dataset_name
     dirname = os.path.join(dirname, '../..')
     dirname = os.path.join(dirname, 'data/segmentation-datasets')
     dirname = os.path.join(dirname, dataset)
     dataset = RunwaysDataset(dirname, labels)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return dataloader
+    split_data_set = split_dataset(dataset, 0.25)
+    test_set = DataLoader(split_data_set['test'], batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+    train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+    return test_set, train_set
 
 
-def model_pipeline(hyper_parameters, network_type):
-    """
-    Procedure to make train and test the CNN based upon the predefined hyperparameters
-    :param hyper_parameters:
-    :return:
-    """
-    with wandb.init(project="runway-segmentation", config=hyper_parameters):
-        config = wandb.config  # log hyperparameters from config dict to wandb
-        model, dataloader, criterion, optimizer = model_maker(config, network_type)  # make model with optimizer
-        # and data
-        # print(model)
-        train_loop(dataloader, model, criterion, optimizer)  # train the model
-        test_loop(dataloader, model, criterion)  # test the model
-    return model
+# def model_pipeline(hyper_parameters, network_type):
+#     """
+#     Procedure to make train and test the CNN based upon the predefined hyperparameters
+#     :param hyper_parameters:
+#     :return:
+#     """
+#     with wandb.init(project="runway-segmentation", config=hyper_parameters):
+#         config = wandb.config  # log hyperparameters from config dict to wandb
+#         model, dataloader, criterion, optimizer = model_maker(config, network_type)  # make model with optimizer
+#         # and data
+#         # print(model)
+#         train_loop(dataloader, model, criterion, optimizer)  # train the model
+#         test_loop(dataloader, model, criterion)  # test the model
+#     return model
 
 
 def model_maker(config, network_type):
@@ -130,13 +132,28 @@ def model_maker(config, network_type):
 
     # Setup model
     model = SemanticSegmentation(network_type)
-    wandb.watch(model)
+    # wandb.watch(model)
 
     # Setup loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=config.learning_rate)
 
     return model, dataloader, criterion, optimizer
+
+
+def save_model(model, epoch, optimizer, run_name: str) -> None:
+    path = os.path.dirname(__file__)  # get the location of the root directory
+    path = os.path.join(path, '../..')  # go to upper level
+    path = os.path.join(path, 'data/segmentation_runs')  # go to segmentation dataset
+    path = os.path.join(path, run_name)  # go to specific model itself
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    state = {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict()
+    }
+    torch.save(state, path)
 
 
 if __name__ == '__main__':
@@ -183,12 +200,16 @@ if __name__ == '__main__':
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
     sgd_optimizer = torch.optim.SGD(deeplab_network.parameters(), lr=learning_rate)
-
+    run_name = 'test_run'
     # Initialize the datasets
-    test_set = initialize_dataloader("tom-showcase", category_rgb_vals, batch_size)
-
-    # train NN
-    train_loop(test_set, deeplab_network, cross_entropy_loss_fn, sgd_optimizer)
+    test_set, train_set = initialize_dataloader("meta-test", category_rgb_vals, batch_size)
+    # run in a loop
+    for e in range(epochs):
+        print(f"Epoch {e+1}\n-----------")
+        train_loop(train_set, deeplab_network, cross_entropy_loss_fn, sgd_optimizer)
+        test_loop(test_set, deeplab_network, cross_entropy_loss_fn)
+        save_model(deeplab_network, e, sgd_optimizer, run_name=run_name)
+    print("Done!")
 
 
 # # Generate colours for images
