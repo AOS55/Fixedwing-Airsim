@@ -4,7 +4,8 @@
 *.pyc
 *.iml
 
-
+runs
+data
 /venv/
 .*
 /__pycache__/

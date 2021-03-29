@@ -3,20 +3,15 @@ import torch
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# instantiate deeplabv3_resnet101 with pretrained values
+# instantiate deeplabv3_resnet101
 deeplab_model = torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101', pretrained=False, num_classes=3).to(
     device).eval()
-# deeplab_model = torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101', pretrained=False).to(device).eval()
 
-from torchvision import transforms
-from PIL import Image
-from torchvision import datasets
+from config import default_config, category_rgb_vals
+from dataset_manager import RunwaysDataset, split_dataset
 from torch import nn
-import numpy as np
-import matplotlib.pyplot as plt
-from dataset_manager import RunwaysDataset
 from torch.utils.data import Dataset, DataLoader
-import wandb
+from torch.utils.tensorboard import SummaryWriter
 
 
 class SemanticSegmentation(nn.Module):
@@ -29,10 +24,10 @@ class SemanticSegmentation(nn.Module):
 
     def forward(self, input_batch):
         """
-        Runs the nn without backpropagation to see what it does when the values are unchanged
+        Runs the nn without backpropagation to get the output.
 
-        :param input_batch:
-        :return:
+        :param input_batch: the X input of data to the NN
+        :return: a tensor of probabilities of each label as defined by the classifier and tensor depth
         """
         if torch.cuda.is_available():
             input_batch = input_batch.to(device)
@@ -43,7 +38,17 @@ class SemanticSegmentation(nn.Module):
         # return output.argmax(0)  # returns the most likely label in a given region
 
 
-def train_loop(dataloader, model, loss_fn, optimizer) -> None:
+def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
+    """
+    Train the neural network with a given loss_fn and optimizer
+
+    :param dataloader: a dataloader class that returns random batched image and mask tensor pairs
+    :param model: the torch nn model to be trained
+    :param loss_fn: the loss function used as to calculate the 'error' between X and y
+    :param optimizer: the optimizer used to minimize the loss function
+    :param epoch: number of times we have gone through the loop
+    :return: None
+    """
     size = len(dataloader)
     for i_batch, sample_batched in enumerate(dataloader):
         X = sample_batched['image']
@@ -54,7 +59,7 @@ def train_loop(dataloader, model, loss_fn, optimizer) -> None:
         print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
 
         loss = loss_fn(pred, y)
-
+        writer.add_scalar("Loss/train", loss, epoch)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -63,10 +68,18 @@ def train_loop(dataloader, model, loss_fn, optimizer) -> None:
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
-            wandb.log({"loss": loss})
 
 
-def test_loop(dataloader, model, loss_fn):
+def test_loop(dataloader, model, loss_fn, epoch):
+    """
+    Train the neural network with a given loss_fn and optimizer
+
+    :param dataloader: a dataloader class that returns random batched image and mask tensor pairs
+    :param model: the torch nn model to be trained
+    :param loss_fn: the loss function used as to calculate the 'error' between X and y
+    :param epoch: number of times we have gone through the loop
+    :return: None
+    """
     size = len(dataloader)
     test_loss, correct = 0, 0
 
@@ -76,6 +89,7 @@ def test_loop(dataloader, model, loss_fn):
             y = sample_batched['mask']
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
+            writer.add_scalar("Loss/train", test_loss, epoch)
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
     test_loss /= size
@@ -87,121 +101,104 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     """
     Generates a dataset object for to train or test the model
 
-    :param dataset_name:
-    :param labels:
-    :param batch_size:
-    :param num_workers:
-    :return:
+    :param dataset_name: name of the dataset used with this run
+    :param labels: the labels of each part of the image, the category_rgb_dict is what is used for this normally
+    :param batch_size: the size of each batch used to train the agent
+    :param num_workers: the number of workers (threads) used to do batching
+    :return: train_set, test_set
     """
     dirname = os.path.dirname(__file__)  # get the location of the root directory
-    dataset = "tom-showcase"
+    dataset = dataset_name
     dirname = os.path.join(dirname, '../..')
     dirname = os.path.join(dirname, 'data/segmentation-datasets')
     dirname = os.path.join(dirname, dataset)
     dataset = RunwaysDataset(dirname, labels)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    return dataloader
+    split_data_set = split_dataset(dataset, 0.25)
+    test_set = DataLoader(split_data_set['test'], batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+    train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+    return test_set, train_set
 
 
-def model_pipeline(hyper_parameters, network_type):
+def model_pipeline(hyper_parameters: dict, model: torch.nn, loss_fn: torch.optim, optimizer: torch.optim,
+                   category_vals: dict) \
+        -> None:
     """
     Procedure to make train and test the CNN based upon the predefined hyperparameters
-    :param hyper_parameters:
+
+    :param model: The nn model used within the controller
+    :param loss_fn: The loss function used to train the nn
+    :param optimizer: The optmizer used to train the nn
+    :param category_vals: The rgb values used to breakup the images within the dataset
+    :param hyper_parameters: dictionary with the key parameters to train the neural network
     :return:
     """
-    with wandb.init(project="runway-segmentation", config=hyper_parameters):
-        config = wandb.config  # log hyperparameters from config dict to wandb
-        model, dataloader, criterion, optimizer = model_maker(config, network_type)  # make model with optimizer
-        # and data
-        # print(model)
-        train_loop(dataloader, model, criterion, optimizer)  # train the model
-        test_loop(dataloader, model, criterion)  # test the model
-    return model
+    # Initialize the datasets
+    test_set, train_set = initialize_dataloader(hyper_parameters['dataset'], category_vals, hyper_parameters[
+        'batch_size'], )
+    # run in a loop
+    for e in range(hyper_parameters['epochs']):
+        print(f"Epoch {e + 1}\n-----------")
+        train_loop(train_set, model, loss_fn, optimizer, e)
+        test_loop(test_set, model, loss_fn, e)
+        save_model(deeplab_network, e, optimizer, hyper_parameters['run_name'])
+        writer.flush()
+    print("Done!")
 
 
-def model_maker(config, network_type):
+def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: str) -> None:
     """
-    Setup a CNN
-    :param config: the hyper-parameters to encode the values with
-    :return: nn.model, dataloader, loss_fn, optimizer with hyper-parameters
+    Save the key model values at various points in time
+
+    :param model: the torch nn model
+    :param epoch: the number of epochs to run the model for
+    :param optimizer: the optimizer used to train the nn model
+    :param run_name: the name of the directory to store all the tensors from this run into
     """
-    # Generate data
-    dataloader = initialize_dataloader(config.dataset, category_rgb_vals, config.batch_size)
+    path = os.path.dirname(__file__)  # get the location of the root directory
+    path = os.path.join(path, '../..')  # go to upper level
+    path = os.path.join(path, 'runs/deeplab-runs')  # go to segmentation dataset
+    path = os.path.join(path, run_name)  # go to specific model itself
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    path = os.path.join(path, 'models')
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    state = {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict()
+    }
+    torch.save(state, path)
 
-    # Setup model
-    model = SemanticSegmentation(network_type)
-    wandb.watch(model)
 
-    # Setup loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=config.learning_rate)
+def save_tensorboards(run_name):
+    """
+    Set the
 
-    return model, dataloader, criterion, optimizer
+    """
+    path = os.path.dirname(__file__)  # get the location of the root directory
+    path = os.path.join(path, '../..')  # go to upper level
+    path = os.path.join(path, 'runs/deeplab-runs')  # go to segmentation dataset
+    path = os.path.join(path, run_name)  # go to specific model itself
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    path = os.path.join(path, 'tenosor_boards')
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    tb_writer = SummaryWriter(path)
+    return tb_writer
 
 
 if __name__ == '__main__':
 
-    # wandb.init(project="segmentation-tests")  # login to weights and biases
-
-    default_config = dict(
-        epochs=20,
-        learning_rate=1e-3,
-        batch_size=1,
-        dataset="test_set",
-        classes=3,
-    )
-    category_rgb_vals = {
-        tuple([0, 0, 0]): 0,
-        tuple([78, 53, 104]): 1,
-        tuple([155, 47, 90]): 2
-    }
-    # deeplab_network = SemanticSegmentation(deeplab_model)
-    #
-    # model_pipeline(default_config, deeplab_network)
-
-    category_rgb_vals = {
-            tuple([0, 0, 0]): 0,
-            tuple([78, 53, 104]): 1,
-            tuple([155, 47, 90]): 2
-    }
-
-    category_rgb_names = {
-        (0, 0, 0): "sky",
-        (78, 53, 104): "runway",
-        (155, 47, 90): "ground"
-    }
-
-    # Hyper-parameters
-    learning_rate = 1e-3
-    batch_size = 1
-    epochs = 20
-
+    # Start the tensorboard summary writer
+    writer = save_tensorboards(default_config['run_name'])
     # Initialize the network
     deeplab_network = SemanticSegmentation(deeplab_model)
-    # wandb.watch(test_network)
-
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
-    sgd_optimizer = torch.optim.SGD(deeplab_network.parameters(), lr=learning_rate)
-
-    # Initialize the datasets
-    test_set = initialize_dataloader("tom-showcase", category_rgb_vals, batch_size)
-
-    # train NN
-    train_loop(test_set, deeplab_network, cross_entropy_loss_fn, sgd_optimizer)
-
-
-# # Generate colours for images
-# palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** 21 - 1])
-# colors = torch.as_tensor([i for i in range(3)])[:, None] * palette
-# colors = (colors % 255).numpy().astype("uint8")
-#
-# # plot the semantic segmentation predictions of 21 classes in each color
-# r = Image.fromarray(tensor_mask.byte().cpu().numpy()).resize(input_mask.size)
-# r.putpalette(colors)
-#
-# plt.imshow(r)
-# plt.show()
-
-# segmentation_model = models.seg.deeplabv3_resnet101(pretrained=True).to(device).eval()
-# print(f'Number of trainable weights in the segmentation model: {model}')
+    sgd_optimizer = torch.optim.SGD(deeplab_network.parameters(), default_config['learning_rate'])
+    # Train the model
+    model_pipeline(default_config, deeplab_network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
+    # Close the tensorboard summary writer
+    writer.close()

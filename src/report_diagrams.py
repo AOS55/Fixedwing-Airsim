@@ -7,7 +7,7 @@ rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 rc('text', usetex=True)
 import matplotlib.pyplot as plt
 import jsbsim_properties as prp
-import navigation
+import navigation as navigation
 import math
 import numpy as np
 

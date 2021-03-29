@@ -1,0 +1,5 @@
+services:
+  segmentation:
+    build: .
+    volumes:
+      - ./data:/app/data
