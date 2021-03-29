@@ -1,10 +1,12 @@
-import torch
-from torchvision import utils
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
-from PIL import Image
-import numpy as np
 import os
+import numpy as np
+import torch
+from PIL import Image
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset, \
+    DataLoader, \
+    Subset
+from torchvision import transforms
 
 
 class RunwaysDataset(Dataset):
@@ -90,6 +92,18 @@ class RunwaysDataset(Dataset):
         return input_tensor
 
 
+def split_dataset(dataset, split_size: float = 0.25):
+    """
+    Train test split
+
+    :param dataset: the dataset to be split
+    :param split_size: the test to train split
+    """
+    train_idx_list, test_idx_list = train_test_split(list(range(len(dataset) - 1)), test_size=split_size)
+    datasets = {'train': Subset(dataset, train_idx_list), 'test': Subset(dataset, test_idx_list)}
+    return datasets
+
+
 if __name__ == '__main__':
 
     dirname = os.path.dirname(__file__)  # get the location of the root directory
@@ -102,10 +116,12 @@ if __name__ == '__main__':
         tuple([78, 53, 104]): 1,
         tuple([155, 47, 90]): 2
     }
-    test_set = RunwaysDataset(dirname, category_rgb_vals)
+    data_set = RunwaysDataset(dirname, category_rgb_vals)
+    split_data_set = split_dataset(data_set, 0.25)
 
-    test_dataloader = DataLoader(test_set, batch_size=2, shuffle=False, num_workers=10)
-    for i_batch, sample_batched in enumerate(test_dataloader):
+    train_dataloader = DataLoader(split_data_set['train'], batch_size=4, shuffle=False, num_workers=10)
+    test_dataloader = DataLoader(split_data_set['test'], batch_size=4, shuffle=False, num_workers=10)
+    for i_batch, sample_batched in enumerate(train_dataloader):
         print(i_batch, sample_batched['image'].size(),
               sample_batched['mask'].size())
 
