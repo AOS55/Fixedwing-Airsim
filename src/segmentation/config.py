@@ -2,9 +2,11 @@ default_config = dict(
     epochs=20,
     learning_rate=1e-3,
     batch_size=1,
-    dataset='test_set',
+    model_name='deeplabv3',
+    device='cuda',
+    dataset='480-multicct',
     classes=3,
-    run_name='test_run'
+    run_name='480-multicct'
 )
 
 category_rgb_vals = {
