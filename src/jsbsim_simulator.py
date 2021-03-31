@@ -171,7 +171,7 @@ class Simulation:
         :return: None
         """
         self.set_custom_initial_conditions(init_conditions=init_conditions)
-        no_output_reset_mode = 0
+        no_output_reset_mode = 1
         self.fdm.reset_to_initial_conditions(no_output_reset_mode)
         self.update_airsim()
 
