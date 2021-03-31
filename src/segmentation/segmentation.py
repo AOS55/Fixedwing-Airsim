@@ -1,12 +1,7 @@
 import os
 import torch
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# instantiate deeplabv3_resnet101
-deeplab_model = torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101', pretrained=False, num_classes=3).to(
-    device).eval()
-
+import segmentation_models_pytorch as smp
+from models import get_model
 from config import default_config, category_rgb_vals
 from dataset_manager import RunwaysDataset, split_dataset
 from torch import nn
@@ -14,6 +9,9 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 
+device = torch.device(default_config['device'] if torch.cuda.is_available() else'cpu')
+print(f"Found device: {device}")
+# device = torch.device('cpu')
 
 
 class SemanticSegmentation(nn.Module):
@@ -142,7 +140,7 @@ def model_pipeline(hyper_parameters: dict, model: torch.nn, loss_fn: torch.optim
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
         test_loop(test_set, model, loss_fn, e)
-        save_model(deeplab_network, e, optimizer, hyper_parameters['run_name'])
+        save_model(model, e, optimizer, hyper_parameters['run_name'])
         writer.flush()
     print("Done!")
 
@@ -187,7 +185,7 @@ def save_tensorboards(run_name: str):
     path = os.path.join(path, run_name)  # go to specific model itself
     if not os.path.isdir(path):
         os.mkdir(path)
-    path = os.path.join(path, 'tenosor_boards')
+    path = os.path.join(path, 'tensor_boards')
     if not os.path.isdir(path):
         os.mkdir(path)
     tb_writer = SummaryWriter(path)
@@ -199,11 +197,12 @@ if __name__ == '__main__':
     # Start the tensorboard summary writer
     writer = save_tensorboards(default_config['run_name'])
     # Initialize the network
-    deeplab_network = SemanticSegmentation(deeplab_model)
+    model = default_config['model_name']
+    network = SemanticSegmentation(get_model(model))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
-    sgd_optimizer = torch.optim.SGD(deeplab_network.parameters(), default_config['learning_rate'])
+    sgd_optimizer = torch.optim.SGD(network.parameters(), default_config['learning_rate'])
     # Train the model
-    model_pipeline(default_config, deeplab_network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
+    model_pipeline(default_config, network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
     # Close the tensorboard summary writer
     writer.close()

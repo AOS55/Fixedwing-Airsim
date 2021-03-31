@@ -441,4 +441,4 @@ def fly_several_circuits(dataset_name: str, min_alt: float = 20, max_alt: float 
 
 
 if __name__ == '__main__':
-    fly_several_circuits(dataset_name="multi-cct")
+    fly_several_circuits(dataset_name="480-multicct")
