@@ -350,45 +350,95 @@ class ImagePath:
         json_file_name = os.path.join(metadata_path, str(metadata_id) + ".json")
         with open(json_file_name, 'w') as json_file:
             json.dump(metadata_dict, json_file)
-        
-        
-def simulate() -> None:
-    """
-    Runs the JSBSim and AirSim in the loop when executed as a script
 
+
+class Simulate:
+
+    def __init__(self,
+                 dataset_name: str = "default-dataset",
+                 sim_time: float = 750,
+                 display_graphics: bool = True,
+                 airsim_frequency_hz: float = 0.2
+                 ):
+        self.dataset_name = dataset_name
+        self.sim_time = sim_time
+        self.display_graphics = display_graphics
+        self.airsim_frequency_hz = airsim_frequency_hz
+        # definition of the initial runway conditions
+        self.runway_start = {
+            prp.initial_altitude_ft: 100,
+            prp.initial_latitude_geod_deg: -1000.0000000000002 / 111120.0,
+            prp.initial_longitude_geoc_deg: 1732.0508075688772 / 111120.0,
+            prp.initial_u_fps: 50.0,
+            prp.initial_w_fps: 0.0,
+            prp.initial_heading_deg: 300.0,
+            prp.initial_roc_fpm: 0.0,
+            prp.all_engine_running: -1
+        }
+        self.env = self.setup_simulator_environment()
+
+    def setup_simulator_environment(self) -> ImagePath:
+        """
+        Setup an instance of the ImagePath class to collect images
+
+        :param dataset_name: the name of the directory all the images & JSON information will be stored in
+        :param sim_time: the time the simulation will run for until it is terminated
+        :param display_graphics: whether or not to display graphics, if set False no images will be collected
+        :param airsim_frequency_hz: how often images will be collected 1/f = image rate e.g. 1/0.2 = 5s per image
+        :return: instance of image path class
+        """
+        # setup an environment
+        env = ImagePath(sim_time=self.sim_time,
+                        display_graphics=self.display_graphics,
+                        init_conditions=self.runway_start,
+                        airsim_frequency_hz=self.airsim_frequency_hz,
+                        dataset_name=self.dataset_name)
+        return env
+
+    def simulate_circuit(self, circuit_radius: float = 100, alt: float = 20, angle: float = -60.0) -> None:
+        """
+        Fly a circuit to collect images around a location defined in the simulator_env
+        :param env: an instance of the ImagePath class
+        :param circuit_radius: the distance between the final/upwind and downwind portion of the circuit
+        :param alt: the altitude to fly the circuit at
+        :param angle: the angle to fly the circuit at, -60.0 lines you up with the Lydd runway
+        :return: None
+        """
+        # [+ forward - back, + right -left, alt]
+        tight_circuit = [[0, 0, 0], [4000, 0, alt], [4000, circuit_radius, alt], [0, circuit_radius, alt], [0, 0, alt],
+                         [4000, 0, alt], [4000, circuit_radius, alt], [0, circuit_radius, alt]]
+
+        origin = [self.env.sim[prp.initial_latitude_geod_deg] * 111120.0, self.env.sim[prp.initial_longitude_geoc_deg] *
+                  111120.0]
+        path = self.env.transform_path(tight_circuit, angle, origin)
+        print(path)
+        self.env.simulation_loop(path, angle=angle, alt=alt, circuit_radius=circuit_radius, circuit_type="tight_circuit")
+        self.env.generate_figures()
+        print("Circuit finished Ended")
+
+
+def fly_several_circuits(dataset_name: str, min_alt: float = 20, max_alt: float = 500, incr_alt: float = 50,
+                         min_width: float = 100, max_width: float = 1000, incr_width: float = 100) -> None:
+    """
+    Simulates flying multiple circuits under different conditions
+
+    :param dataset_name: name of dataset to save names into
+    :param min_alt: minimum altitude to be flown [feet]
+    :param max_alt: maximum altitude to be flown [feet]
+    :param incr_alt: increment of altitude to be flown [feet]
+    :param min_width: minimum width of circuit to be flown [m]
+    :param max_width: maximum width of circuit to be flown [m]
+    :param incr_width: increment of circuit width to be flown [m]
     :return: None
     """
-
-    runway_start = {
-        prp.initial_altitude_ft: 100,
-        prp.initial_latitude_geod_deg: -1000.0000000000002 / 111120.0,
-        prp.initial_longitude_geoc_deg: 1732.0508075688772 / 111120.0,
-        prp.initial_u_fps: 50.0,
-        prp.initial_w_fps: 0.0,
-        prp.initial_heading_deg: 300.0,
-        prp.initial_roc_fpm: 0.0,
-        prp.all_engine_running: -1
-    }
-
-    env = ImagePath(sim_time=750, display_graphics=True, init_conditions=runway_start, airsim_frequency_hz=0.2,
-                    dataset_name="meta-test")
-    rectangle = ((0, 0, 0), (2000, 0, 100), (2000, 2000, 100), (-2000, 2000, 100), (-2000, 0, 100), (2000, 0, 20),
-                 (2000, 2000, 20), (-2000, 2000, 20))
-    angle = -60.0
-    alt = 20
-    circuit_radius = 100
-    # [+ forward - back, + right -left, alt]
-    # straight_line = [[-2000, 0, 100], [1000, 0, 100], [1000, -2000, 100], [2, -1, 100]]
-    tight_circuit = [[0, 0, 0], [4000, 0, alt], [4000, circuit_radius, alt], [0, circuit_radius, alt], [0, 0, alt],
-                     [4000, 0, alt], [4000, circuit_radius, alt], [0, circuit_radius, alt]]
-
-    origin = [env.sim[prp.initial_latitude_geod_deg] * 111120.0, env.sim[prp.initial_longitude_geoc_deg] * 111120.0]
-    path = env.transform_path(tight_circuit, angle, origin)
-    print(path)
-    env.simulation_loop(path, angle=angle, alt=alt, circuit_radius=circuit_radius, circuit_type="tight_circuit")
-    env.generate_figures()
-    print("Simulation Ended")
+    alts = [x for x in range(int(min_alt), int(max_alt), int(incr_alt))]
+    widths = [x for x in range(int(min_width), int(max_width), int(incr_width))]
+    for alt in alts:
+        for width in widths:
+            sim = Simulate(dataset_name)
+            sim.simulate_circuit(width, alt)
+    print("Simulation finished")
 
 
 if __name__ == '__main__':
-    simulate()
+    fly_several_circuits(dataset_name="multi-cct")
