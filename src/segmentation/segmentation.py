@@ -12,6 +12,8 @@ from dataset_manager import RunwaysDataset, split_dataset
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchsummary import summary
+
 
 
 class SemanticSegmentation(nn.Module):
@@ -166,15 +168,18 @@ def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: st
     state = {
         'epoch': epoch,
         'state_dict': model.state_dict(),
-        'optimizer': optimizer.state_dict()
+        'optimizer': optimizer.state_dict(),
+        'paramaters': summary(model, model.shape)
     }
     torch.save(state, path)
 
 
-def save_tensorboards(run_name):
+def save_tensorboards(run_name: str):
     """
-    Set the
+    Setup the tensorboard writer and the tensorboard run directory
 
+    :param run_name: the name of the directory to store the tensorboard within
+    :return: the tensorboard summary writer object
     """
     path = os.path.dirname(__file__)  # get the location of the root directory
     path = os.path.join(path, '../..')  # go to upper level
