@@ -24,5 +24,4 @@ def get_model(model_name: str, device: str) -> torch.nn:
 
 
 if __name__ == '__main__':
-    model = get_model(default_config['model_name'])
-    print(model)
+    print('Dont Run models as main')
