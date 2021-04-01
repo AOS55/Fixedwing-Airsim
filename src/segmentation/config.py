@@ -10,7 +10,7 @@ class NetworkConfig:
                  epochs: int = 20,
                  learning_rate: float = 1e-3,
                  batch_size: int = 1,
-                 model_name: str = 'Deeplab',
+                 model_name: str = 'deeplabv3',
                  device: str = 'cuda',
                  dataset: str = 'tom-showcase',
                  classes: str = 3,
