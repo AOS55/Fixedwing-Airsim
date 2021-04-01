@@ -52,10 +52,10 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         # Compute prediction and loss
         pred = model(X)
         y = y.to(device)
-        print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
-
+        # print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
         loss = loss_fn(pred, y)
-        writer.add_scalar("Loss/train", loss, epoch)
+        writer.add_scalar("Loss/train", loss, i_batch)
+        writer.add_histogram("Prediction Distribution/train", y, i_batch)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -85,13 +85,16 @@ def test_loop(dataloader, model, loss_fn, epoch):
             y = sample_batched['mask']
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
-            writer.add_scalar("Loss/train", test_loss, epoch)
+            writer.add_scalar("Loss/test", test_loss, i_batch)
+
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
     test_loss /= size
     correct /= size
     print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}% Avg loss: {test_loss:>8f} \n")
-
+    writer.add_scalar("Accuracy/test", correct, epoch)
+    writer.add_scalar("Avg Loss/test", test_loss, epoch)
+    writer.add_images("Predicted Segmentation/test", y, epoch)
 
 def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1):
     """
@@ -163,7 +166,7 @@ def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: st
         'epoch': epoch,
         'state_dict': model.state_dict(),
         'optimizer': optimizer.state_dict(),
-        'paramaters': summary(model, model.shape)
+        # 'paramaters': summary(model, model.shape)  # I don't know how to use this?
     }
     save_path = os.path.join(path, str(epoch) + '.pt')
     torch.save(state, save_path)
