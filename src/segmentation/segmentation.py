@@ -2,16 +2,12 @@ import os
 import torch
 import segmentation_models_pytorch as smp
 from models import get_model
-from config import default_config, category_rgb_vals
+from config import NetworkConfig, category_rgb_vals
 from dataset_manager import RunwaysDataset, split_dataset
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
-
-device = torch.device(default_config['device'] if torch.cuda.is_available() else'cpu')
-print(f"Found device: {device}")
-# device = torch.device('cpu')
 
 
 class SemanticSegmentation(nn.Module):
@@ -119,7 +115,7 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     return test_set, train_set
 
 
-def model_pipeline(hyper_parameters: dict, model: torch.nn, loss_fn: torch.optim, optimizer: torch.optim,
+def model_pipeline(hyper_parameters: NetworkConfig, model: torch.nn, loss_fn: torch.optim, optimizer: torch.optim,
                    category_vals: dict) \
         -> None:
     """
@@ -133,14 +129,14 @@ def model_pipeline(hyper_parameters: dict, model: torch.nn, loss_fn: torch.optim
     :return:
     """
     # Initialize the datasets
-    test_set, train_set = initialize_dataloader(hyper_parameters['dataset'], category_vals, hyper_parameters[
-        'batch_size'], )
+    test_set, train_set = initialize_dataloader(hyper_parameters.dataset, category_vals,
+                                                hyper_parameters.batch_size, )
     # run in a loop
-    for e in range(hyper_parameters['epochs']):
+    for e in range(hyper_parameters.epochs):
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
         test_loop(test_set, model, loss_fn, e)
-        save_model(model, e, optimizer, hyper_parameters['run_name'])
+        save_model(model, e, optimizer, hyper_parameters.run_name)
         writer.flush()
     print("Done!")
 
@@ -194,15 +190,21 @@ def save_tensorboards(run_name: str):
 
 if __name__ == '__main__':
 
+    # Setup the nn configuration
+    config = NetworkConfig()
+    print(config.epochs)
+    # Setup the device to use
+    device = torch.device(config.device if torch.cuda.is_available() else 'cpu')
+    print(f"Found device: {device}")
     # Start the tensorboard summary writer
-    writer = save_tensorboards(default_config['run_name'])
+    writer = save_tensorboards(config.run_name)
     # Initialize the network
-    model = default_config['model_name']
-    network = SemanticSegmentation(get_model(model))
+    model = config.model_name
+    network = SemanticSegmentation(get_model(model, device))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
-    sgd_optimizer = torch.optim.SGD(network.parameters(), default_config['learning_rate'])
+    sgd_optimizer = torch.optim.SGD(network.parameters(), config.learning_rate)
     # Train the model
-    model_pipeline(default_config, network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
+    model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
     # Close the tensorboard summary writer
     writer.close()

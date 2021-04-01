@@ -1,17 +1,13 @@
 import torch
 import segmentation_models_pytorch as smp
-from config import default_config
-
-device = torch.device(default_config['device'] if torch.cuda.is_available() else 'cpu')
-print(f"Found device: {device}")
-# device = torch.device('cpu')
 
 
-def get_model(model_name: str) -> torch.nn:
+def get_model(model_name: str, device: str) -> torch.nn:
     """
     Gets the model requested from the config file
 
-    :param model_name:
+    :param model_name: name of model used in the program
+    :param device: name of device model is hosted on
     :return: the nn.model to be trained
     """
     model_dict = {'deeplabv3': torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101',
