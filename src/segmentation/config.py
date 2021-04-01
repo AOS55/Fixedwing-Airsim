@@ -10,11 +10,11 @@ class NetworkConfig:
                  epochs: int = 20,
                  learning_rate: float = 1e-3,
                  batch_size: int = 1,
-                 model_name: str = 'UnetPlusPlus',
+                 model_name: str = 'Deeplab',
                  device: str = 'cuda',
-                 dataset: str = '480-multicct',
+                 dataset: str = 'tom-showcase',
                  classes: str = 3,
-                 run_name: str = '480-multicct'
+                 run_name: str = 'tom-showcase'
                  ):
         """
         Run the parser and change the config file used
