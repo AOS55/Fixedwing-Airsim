@@ -61,7 +61,7 @@ class RunwaysDataset(Dataset):
         input_mask = Image.open(mask_name)
         np_mask = np.array(input_mask)
 
-        np_mask_labels = np.ones([1440, 2560])
+        np_mask_labels = np.ones([len(np_mask), len(np_mask[0])])
         for col_id in range(np_mask.shape[0]):
             for row_id in range(np_mask.shape[1]):
                 try:
@@ -105,7 +105,7 @@ def split_dataset(dataset, split_size: float = 0.25):
 if __name__ == '__main__':
 
     dirname = os.path.dirname(__file__)  # get the location of the root directory
-    dataset = "meta-test"
+    dataset = "480-multicct"
     dirname = os.path.join(dirname, '../..')
     dirname = os.path.join(dirname, 'data/segmentation-datasets')
     dirname = os.path.join(dirname, dataset)
