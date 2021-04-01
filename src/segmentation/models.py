@@ -20,6 +20,7 @@ def get_model(model_name: str, device: str) -> torch.nn:
         model = model_dict[model_name]
     except KeyError:
         print(f"KeyError, model_name is not valid allowable names are: {model_dict.keys()}")
+        model = None
     return model
 
 

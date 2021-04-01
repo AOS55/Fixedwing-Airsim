@@ -3,6 +3,7 @@
 *.png
 *.pyc
 *.iml
+*.out
 
 runs
 data
