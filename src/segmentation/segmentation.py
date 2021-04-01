@@ -165,7 +165,8 @@ def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: st
         'optimizer': optimizer.state_dict(),
         'paramaters': summary(model, model.shape)
     }
-    torch.save(state, path)
+    save_path = os.path.join(path, str(epoch) + '.pt')
+    torch.save(state, save_path)
 
 
 def save_tensorboards(run_name: str):
