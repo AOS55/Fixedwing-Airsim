@@ -251,7 +251,7 @@ class ImagePath:
                 while os.path.exists(cur_seg):
                     seg_id += 1
                     cur_seg = os.path.join(seg_path, str(seg_id) + ".png")
-                    # TODO: seg method just skips forward one would be better go to end of images
+                    # TODO: seg method just skips forward one until we get there would be better go to end of images
                 cv2.imwrite(os.path.join(seg_path, str(seg_id) + ".png"), img_rgb)
         responses_image = self.sim.client.simGetImages([
             airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)])
@@ -263,7 +263,7 @@ class ImagePath:
                 while os.path.exists(cur_image):
                     image_id += 1
                     cur_image = os.path.join(image_path, str(image_id) + ".png")
-                    # TODO: image method just skips forward one would be better go to end of images
+                    # TODO: image method just skips forward one until we get there would be better go to end of images
                 cv2.imwrite(os.path.join(image_path, str(image_id) + ".png"), img_rgb)
         return seg_id, image_id
 
