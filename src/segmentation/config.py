@@ -10,11 +10,12 @@ class NetworkConfig:
                  epochs: int = 20,
                  learning_rate: float = 1e-3,
                  batch_size: int = 1,
-                 model_name: str = 'deeplabv3',
+                 model_name: str = 'resnet18',
                  device: str = 'cuda',
-                 dataset: str = 'tom-showcase',
+                 dataset: str = '480-multicct',
                  classes: str = 3,
-                 run_name: str = 'tom-showcase'
+                 run_name: str = '480-multicct',
+                 num_workers: int = 4
                  ):
         """
         Run the parser and change the config file used
@@ -27,6 +28,7 @@ class NetworkConfig:
         self.dataset = dataset
         self.classes = classes
         self.run_name = run_name
+        self.num_workers = num_workers
         self.parser_args = self.parser_func()
         self.build_config_file()
 
@@ -47,6 +49,7 @@ class NetworkConfig:
         parser.add_argument('--dataset', type=str, help='the name of the dataset dir to train the nn')
         parser.add_argument('--classes', type=int, help='the number of classes contained in the nn input (3 by default)')
         parser.add_argument('--run_name', type=str, help='the name of the directory to store the results of the nn')
+        parser.add_argument('--num_workers', type=int, help='the number of workers to use for batch loading')
         args = parser.parse_args()
         return args
 
@@ -74,6 +77,11 @@ class NetworkConfig:
             self.classes = self.parser_args.classes
         if self.parser_args.run_name:
             self.run_name = self.parser_args.run_name
+        else:
+            self.run_name = 'mn' + self.model_name + 'eps' + str(self.epochs) + 'lr' + str(self.learning_rate) + 'bs' \
+                            + str(self.batch_size)
+        if self.parser_args.num_workers:
+            self.num_workers = self.parser_args.num_workers
 
 
 category_rgb_vals = {

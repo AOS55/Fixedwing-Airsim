@@ -8,6 +8,9 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
+from PIL import Image
+import matplotlib.pyplot as plt
+import torch.autograd.profiler as profiler
 
 
 class SemanticSegmentation(nn.Module):
@@ -46,6 +49,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
     :return: None
     """
     size = len(dataloader)
+    train_loss, correct = 0, 0
     for i_batch, sample_batched in enumerate(dataloader):
         X = sample_batched['image']
         y = sample_batched['mask']
@@ -54,8 +58,9 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         y = y.to(device)
         # print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
         loss = loss_fn(pred, y)
-        writer.add_scalar("Loss/train", loss, i_batch)
-        writer.add_histogram("Prediction Distribution/train", y, i_batch)
+        train_loss += loss
+        correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
+        writer.add_histogram("train/prediction", y, i_batch)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -64,6 +69,13 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+            writer.add_graph(model, X)
+
+    train_loss /= size
+    correct /= size
+
+    writer.add_scalar("train/avg accuracy", correct, epoch)
+    writer.add_scalar("train/avg loss", train_loss, epoch)
 
 
 def test_loop(dataloader, model, loss_fn, epoch):
@@ -84,17 +96,25 @@ def test_loop(dataloader, model, loss_fn, epoch):
             X = sample_batched['image']
             y = sample_batched['mask']
             pred = model(X)
+            y = y.to(device)
             test_loss += loss_fn(pred, y).item()
-            writer.add_scalar("Loss/test", test_loss, i_batch)
 
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
+
+            if i_batch % 5 == 1:
+                pred_fig = tensor_to_image(pred, 3, True)
+                y_fig = tensor_to_image(y, 3, False)
+                X_fig = tensor_image_to_image(X)
+                writer.add_figure('prediction/'+str(i_batch), pred_fig, global_step=epoch)
+                writer.add_figure('truth/'+str(i_batch), y_fig, global_step=epoch)
+                writer.add_figure('input/'+str(i_batch), X_fig, global_step=epoch)
 
     test_loss /= size
     correct /= size
     print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}% Avg loss: {test_loss:>8f} \n")
-    writer.add_scalar("Accuracy/test", correct, epoch)
-    writer.add_scalar("Avg Loss/test", test_loss, epoch)
-    writer.add_images("Predicted Segmentation/test", y, epoch)
+    writer.add_scalar("test/avg accuracy", correct, epoch)
+    writer.add_scalar("test/avg loss", test_loss, epoch)
+
 
 def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1):
     """
@@ -122,7 +142,7 @@ def model_pipeline(hyper_parameters: NetworkConfig, model: torch.nn, loss_fn: to
                    category_vals: dict) \
         -> None:
     """
-    Procedure to make train and test the CNN based upon the predefined hyperparameters
+    Procedure to make, train and test the CNN based upon the predefined hyperparameters
 
     :param model: The nn model used within the controller
     :param loss_fn: The loss function used to train the nn
@@ -133,18 +153,18 @@ def model_pipeline(hyper_parameters: NetworkConfig, model: torch.nn, loss_fn: to
     """
     # Initialize the datasets
     test_set, train_set = initialize_dataloader(hyper_parameters.dataset, category_vals,
-                                                hyper_parameters.batch_size, )
+                                                hyper_parameters.batch_size, hyper_parameters.num_workers)
     # run in a loop
     for e in range(hyper_parameters.epochs):
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
         test_loop(test_set, model, loss_fn, e)
-        save_model(model, e, optimizer, hyper_parameters.run_name)
+        save_model(model, e, optimizer, hyper_parameters.run_name, hyper_parameters.dataset)
         writer.flush()
     print("Done!")
 
 
-def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: str) -> None:
+def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: str, dataset_name: str) -> None:
     """
     Save the key model values at various points in time
 
@@ -152,14 +172,19 @@ def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: st
     :param epoch: the number of epochs to run the model for
     :param optimizer: the optimizer used to train the nn model
     :param run_name: the name of the directory to store all the tensors from this run into
+    :param dataset_name: the name of the dataset for this experiment
+    :return: None
     """
     path = os.path.dirname(__file__)  # get the location of the root directory
     path = os.path.join(path, '../..')  # go to upper level
     path = os.path.join(path, 'runs/deeplab-runs')  # go to segmentation dataset
-    path = os.path.join(path, run_name)  # go to specific model itself
+    path = os.path.join(path, dataset_name)  # go to runs dataset dir
     if not os.path.isdir(path):
         os.mkdir(path)
     path = os.path.join(path, 'models')
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    path = os.path.join(path, run_name)
     if not os.path.isdir(path):
         os.mkdir(path)
     state = {
@@ -172,24 +197,79 @@ def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: st
     torch.save(state, save_path)
 
 
-def save_tensorboards(run_name: str):
+def initialize_tensorboards(run_name: str, dataset_name: str):
     """
     Setup the tensorboard writer and the tensorboard run directory
 
-    :param run_name: the name of the directory to store the tensorboard within
-    :return: the tensorboard summary writer object
+    :param run_name: the name of the directory to store the tensorboard
+    :param dataset_name: the name of the dataset for this experiment
+    :return: the tensorboard summary writer object & path to the tb file
     """
     path = os.path.dirname(__file__)  # get the location of the root directory
     path = os.path.join(path, '../..')  # go to upper level
     path = os.path.join(path, 'runs/deeplab-runs')  # go to segmentation dataset
-    path = os.path.join(path, run_name)  # go to specific model itself
+    path = os.path.join(path, dataset_name)  # go to runs dataset dir
     if not os.path.isdir(path):
         os.mkdir(path)
     path = os.path.join(path, 'tensor_boards')
     if not os.path.isdir(path):
         os.mkdir(path)
+    path = os.path.join(path, run_name)  # go to specific model dir
+    ver = 0
+    path_tmp = path + 'ver' + str(ver)
+    while os.path.exists(path_tmp):
+        ver += 1
+        path_tmp = path + 'ver' + str(ver)
+    path = path_tmp
+    if not os.path.isdir(path):
+        os.mkdir(path)
     tb_writer = SummaryWriter(path)
-    return tb_writer
+    return tb_writer, path
+
+
+def tensor_to_image(input: torch.tensor, classes: int = 3, is_prediction: bool = False) -> plt.figure:
+    """
+    Given an input image produces a coloured segmented response for visualization
+
+    :param input: an input image with dims as expected by the nn model
+    :param classes: the number of classes used in the input
+    :param is_prediction: a boolean of whether the data is a CXWXH tensor or just 1XWXH
+    :return: matplotlib figure object
+    """
+    if is_prediction:
+        image_tensor = input.argmax(1)[0]
+    else:
+        image_tensor = input[0]
+    # create a color palette, selecting a color for each class
+    palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** classes - 1])
+    colors = torch.as_tensor([i for i in range(3)])[:, None] * palette
+    colors = (colors % 255).numpy().astype("uint8")
+
+    # plot the semantic segmentation predictions for each color
+    r = Image.fromarray(image_tensor.byte().cpu().numpy())
+    r.putpalette(colors)
+
+    fig, ax = plt.subplots()
+    ax.imshow(r)
+    return fig
+
+
+def tensor_image_to_image(input: torch.tensor) -> plt.figure:
+    """
+    Given an input image tensor converts the image to a matplotlib object to view
+
+    :param: input of the original image (X) tensor
+    :return: a matplotlib image
+    """
+
+    # convert image from GPU to CPU and use first image
+    img = input[0].cpu().numpy()
+    # rearrage order to HWC
+    img = np.transpose(img, (1, 2, 0))
+    img = np.clip(img, 0, 1)
+    fig, ax = plt.subplots()
+    ax.imshow(img)
+    return fig
 
 
 if __name__ == '__main__':
@@ -201,14 +281,21 @@ if __name__ == '__main__':
     device = torch.device(config.device if torch.cuda.is_available() else 'cpu')
     print(f"Found device: {device}")
     # Start the tensorboard summary writer
-    writer = save_tensorboards(config.run_name)
+    writer, tb_path = initialize_tensorboards(config.run_name, config.dataset)
     # Initialize the network
-    model = config.model_name
-    network = SemanticSegmentation(get_model(model, device))
+    # with profiler.profile() as prof:  # profile network_initialization
+    #     with profiler.record_function("network_initialization"):
+    network_model = config.model_name
+    network = SemanticSegmentation(get_model(network_model, device))
+    # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
     sgd_optimizer = torch.optim.SGD(network.parameters(), config.learning_rate)
     # Train the model
+    # TODO: Profiler is here but it is too big, try and profile individual processes once
+    # with profiler.profile() as prof:  # profile training and testing process
+    #     with profiler.record_function("learning"):
     model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
+    # prof.export_chrome_trace(os.path.join(tb_path, "learning_trace.json"))
     # Close the tensorboard summary writer
     writer.close()
