@@ -104,8 +104,10 @@ def test_loop(dataloader, model, loss_fn, epoch):
             if i_batch % 5 == 1:
                 pred_fig = tensor_to_image(pred, 3, True)
                 y_fig = tensor_to_image(y, 3, False)
+                X_fig = tensor_image_to_image(X)
                 writer.add_figure('prediction/'+str(i_batch), pred_fig, global_step=epoch)
                 writer.add_figure('truth/'+str(i_batch), y_fig, global_step=epoch)
+                writer.add_figure('input/'+str(i_batch), X_fig, global_step=epoch)
 
     test_loss /= size
     correct /= size
@@ -252,6 +254,24 @@ def tensor_to_image(input: torch.tensor, classes: int = 3, is_prediction: bool =
     return fig
 
 
+def tensor_image_to_image(input: torch.tensor) -> plt.figure:
+    """
+    Given an input image tensor converts the image to a matplotlib object to view
+
+    :param: input of the original image (X) tensor
+    :return: a matplotlib image
+    """
+
+    # convert image from GPU to CPU and use first image
+    img = input[0].cpu().numpy()
+    # rearrage order to HWC
+    img = np.transpose(img, (1, 2, 0))
+    img = np.clip(img, 0, 1)
+    fig, ax = plt.subplots()
+    ax.imshow(img)
+    return fig
+
+
 if __name__ == '__main__':
 
     # Setup the nn configuration
@@ -262,8 +282,6 @@ if __name__ == '__main__':
     print(f"Found device: {device}")
     # Start the tensorboard summary writer
     writer, tb_path = initialize_tensorboards(config.run_name, config.dataset)
-    # Add hyperparameters to summary writer
-    writer.add_hparams(config)
     # Initialize the network
     # with profiler.profile() as prof:  # profile network_initialization
     #     with profiler.record_function("network_initialization"):
@@ -274,7 +292,7 @@ if __name__ == '__main__':
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
     sgd_optimizer = torch.optim.SGD(network.parameters(), config.learning_rate)
     # Train the model
-    # TODO: Profiler is here but it is too big try and profile individual processes once as required
+    # TODO: Profiler is here but it is too big, try and profile individual processes once
     # with profiler.profile() as prof:  # profile training and testing process
     #     with profiler.record_function("learning"):
     model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
