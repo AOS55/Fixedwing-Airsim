@@ -67,7 +67,7 @@ class RunwaysDataset(Dataset):
                 try:
                     np_mask_labels[col_id, row_id] = self.labels[tuple(np_mask[col_id, row_id])]
                 except KeyError:
-                    print(f"Unrecognized value in mask data {np_mask[col_id, row_id]} setting to 0")
+                    # print(f"Unrecognized value in mask data {np_mask[col_id, row_id]} setting to 0")
                     np_mask_labels[col_id, row_id] = 0
         torch_mask = torch.tensor(np_mask_labels)
         torch_mask = torch_mask.to(dtype=int)
