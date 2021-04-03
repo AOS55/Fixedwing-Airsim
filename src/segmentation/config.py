@@ -13,9 +13,11 @@ class NetworkConfig:
                  model_name: str = 'resnet18',
                  device: str = 'cuda',
                  dataset: str = '480-multicct',
-                 classes: str = 3,
+                 class_name: str = 'runway',
                  run_name: str = '480-multicct',
-                 num_workers: int = 4
+                 num_workers: int = 4,
+                 image_height: int = 480,
+                 image_width: int = 852
                  ):
         """
         Run the parser and change the config file used
@@ -26,11 +28,14 @@ class NetworkConfig:
         self.model_name = model_name
         self.device = device
         self.dataset = dataset
-        self.classes = classes
+        self.class_name = class_name
         self.run_name = run_name
         self.num_workers = num_workers
+        self.image_height = image_height
+        self.image_width = image_width
         self.parser_args = self.parser_func()
         self.build_config_file()
+        self.classes = self.rgb_classes()
 
     @staticmethod
     def parser_func() -> argparse.ArgumentParser.parse_args:
@@ -45,11 +50,15 @@ class NetworkConfig:
         parser.add_argument('--batch_size', type=int, help='the number of samples to propogate through the network on '
                                                            'each pass')
         parser.add_argument('--model_name', type=str, help='the name of the nn model used')
-        parser.add_argument('--device', type=str, help='the name of the device type to train the nn on either CUDA or CPU')
+        parser.add_argument('--device', type=str, help='the name of the device type to train the nn on'
+                                                       ' either CUDA or CPU')
         parser.add_argument('--dataset', type=str, help='the name of the dataset dir to train the nn')
-        parser.add_argument('--classes', type=int, help='the number of classes contained in the nn input (3 by default)')
+        parser.add_argument('--class_name', type=str, help='the name of the class dict contained used in the nn seg '
+                                                           'map (runway_rgb_vals by default)')
         parser.add_argument('--run_name', type=str, help='the name of the directory to store the results of the nn')
         parser.add_argument('--num_workers', type=int, help='the number of workers to use for batch loading')
+        parser.add_argument('--image_height', type=int, help='height of RGB images if cropping images')
+        parser.add_argument('--image_width', type=int, help='the width of RGB images if cropping images')
         args = parser.parse_args()
         return args
 
@@ -57,8 +66,6 @@ class NetworkConfig:
         """
         Build a config dictionary to be used for image segmentation
 
-        :param parser_args: a parser argument contianing all the arguments expected by the program
-        :param config: The configuration dictionary containin default key:value pairs
         :return: the config dictionary modified by config
         """
         if self.parser_args.epochs:
@@ -73,8 +80,8 @@ class NetworkConfig:
             self.device = self.parser_args.device
         if self.parser_args.dataset:
             self.dataset = self.parser_args.dataset
-        if self.parser_args.classes:
-            self.classes = self.parser_args.classes
+        if self.parser_args.class_name:
+            self.class_name = self.parser_args.class_name
         if self.parser_args.run_name:
             self.run_name = self.parser_args.run_name
         else:
@@ -82,15 +89,46 @@ class NetworkConfig:
                             + str(self.batch_size)
         if self.parser_args.num_workers:
             self.num_workers = self.parser_args.num_workers
+        if self.parser_args.image_height:
+            self.image_height = self.parser_args.image_height
+        if self.parser_args.image_width:
+            self.image_width = self.parser_args.image_width
+
+    def rgb_classes(self) -> dict:
+        """
+        Function to map the input string for the expected type of dict to the dict itself
+
+        :return: dictionary of rgb_values
+        """
+
+        # Runway dataset colour map
+        runway_rgb_vals = {
+            tuple([0, 0, 0]): 0,  # Sky
+            tuple([78, 53, 104]): 1,  # Runway
+            tuple([155, 47, 90]): 2  # Ground
+        }
+
+        # UAVid dataset colour map
+        uav_rgb_vals = {
+            tuple([0, 0, 0]): 0,  # Background Clutter
+            tuple([128, 0, 0]): 1,  # Building
+            tuple([128, 64, 128]): 2,  # Road
+            tuple([0, 128, 0]): 3,  # Tree
+            tuple([128, 128, 0]): 4,  # Low Vegetation
+            tuple([64, 0, 128]): 5,  # Moving Car
+            tuple([192, 0, 192]): 6,  # Static Car
+            tuple([192, 0, 192]): 7  # Human
+        }
+
+        rgb_vals = {
+            'runway': runway_rgb_vals,
+            'uav': uav_rgb_vals
+        }
+
+        return rgb_vals[self.class_name]
 
 
-category_rgb_vals = {
-    tuple([0, 0, 0]): 0,
-    tuple([78, 53, 104]): 1,
-    tuple([155, 47, 90]): 2
-}
-
-category_rgb_names = {
+runway_rgb_cats = {
     (0, 0, 0): "sky",
     (78, 53, 104): "runway",
     (155, 47, 90): "ground"
