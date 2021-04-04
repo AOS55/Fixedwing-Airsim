@@ -2,24 +2,27 @@ import os
 import torch
 import segmentation_models_pytorch as smp
 from models import get_model
-from config import NetworkConfig, category_rgb_vals
-from dataset_manager import RunwaysDataset, split_dataset
+from config import NetworkConfig
+from dataset_manager import RunwaysDataset, split_dataset, UAVDataset, CityscapesDataset
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchvision import datasets
 from torchsummary import summary
 from PIL import Image
 import matplotlib.pyplot as plt
 import torch.autograd.profiler as profiler
+import numpy as np
 
 
 class SemanticSegmentation(nn.Module):
     """
     Class to train and use a Semantic Segmentation Network
     """
-    def __init__(self, model):
+    def __init__(self, model, device_type):
         super(SemanticSegmentation, self).__init__()
         self.model = model
+        self.device = device_type
 
     def forward(self, input_batch):
         """
@@ -29,10 +32,10 @@ class SemanticSegmentation(nn.Module):
         :return: a tensor of probabilities of each label as defined by the classifier and tensor depth
         """
         if torch.cuda.is_available():
-            input_batch = input_batch.to(device)
-            self.model.to(device)
+            input_batch = input_batch.to(self.device)
+            self.model.to(self.device)
         # with torch.no_grad():
-        output = self.model(input_batch)['out'].to(device)
+        output = self.model(input_batch)['out'].to(self.device)
         return output
         # return output.argmax(0)  # returns the most likely label in a given region
 
@@ -78,7 +81,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
     writer.add_scalar("train/avg loss", train_loss, epoch)
 
 
-def test_loop(dataloader, model, loss_fn, epoch):
+def test_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
     """
     Train the neural network with a given loss_fn and optimizer
 
@@ -86,6 +89,7 @@ def test_loop(dataloader, model, loss_fn, epoch):
     :param model: the torch nn model to be trained
     :param loss_fn: the loss function used as to calculate the 'error' between X and y
     :param epoch: number of times we have gone through the loop
+    :param rgb_map: rgb_map used in original image
     :return: None
     """
     size = len(dataloader)
@@ -102,8 +106,8 @@ def test_loop(dataloader, model, loss_fn, epoch):
             correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
 
             if i_batch % 5 == 1:
-                pred_fig = tensor_to_image(pred, 3, True)
-                y_fig = tensor_to_image(y, 3, False)
+                pred_fig = tensor_to_image(pred, rgb_map, True)
+                y_fig = tensor_to_image(y, rgb_map, False)
                 X_fig = tensor_image_to_image(X)
                 writer.add_figure('prediction/'+str(i_batch), pred_fig, global_step=epoch)
                 writer.add_figure('truth/'+str(i_batch), y_fig, global_step=epoch)
@@ -116,7 +120,8 @@ def test_loop(dataloader, model, loss_fn, epoch):
     writer.add_scalar("test/avg loss", test_loss, epoch)
 
 
-def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1):
+def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1,
+                          class_name: str = 'runway', crop_size: tuple = (480, 852)):
     """
     Generates a dataset object for to train or test the model
 
@@ -124,6 +129,8 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     :param labels: the labels of each part of the image, the category_rgb_dict is what is used for this normally
     :param batch_size: the size of each batch used to train the agent
     :param num_workers: the number of workers (threads) used to do batching
+    :param class_name: the name of the class the segmented image is learning from, informs the type of Dataset class
+    :param crop_size: an HxW scale of the desired crop e.g. 480x852
     :return: train_set, test_set
     """
     dirname = os.path.dirname(__file__)  # get the location of the root directory
@@ -131,35 +138,50 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     dirname = os.path.join(dirname, '../..')
     dirname = os.path.join(dirname, 'data/segmentation-datasets')
     dirname = os.path.join(dirname, dataset)
-    dataset = RunwaysDataset(dirname, labels)
-    split_data_set = split_dataset(dataset, 0.25)
-    test_set = DataLoader(split_data_set['test'], batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
-    train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
-    return test_set, train_set
+    if class_name == 'runway':
+        dataset = RunwaysDataset(dirname, labels)
+        split_data_set = split_dataset(dataset, 0.25)
+        train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False,
+                               num_workers=num_workers // 2)
+        test_set = DataLoader(split_data_set['test'], batch_size=batch_size, shuffle=False,
+                              num_workers=num_workers // 2)
+    if class_name == 'uav':
+        train_dataset = UAVDataset(os.path.join(dirname, 'train'), labels, crop_size)
+        test_dataset = UAVDataset(os.path.join(dirname, 'test'), labels, crop_size)
+        train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+        test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+    if class_name == 'cityscapes':
+        train_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='train')
+        test_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='val')
+        train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+        test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+    else:
+        print(f'Invalid class_name: {class_name}')
+        raise SystemExit(0)
+    return train_set, test_set
 
 
-def model_pipeline(hyper_parameters: NetworkConfig, model: torch.nn, loss_fn: torch.optim, optimizer: torch.optim,
-                   category_vals: dict) \
-        -> None:
+def model_pipeline(network_config: NetworkConfig, model: torch.nn,
+                   loss_fn: torch.optim, optimizer: torch.optim) -> None:
     """
     Procedure to make, train and test the CNN based upon the predefined hyperparameters
 
+    :param network_config: dictionary with the key parameters to train the neural network
     :param model: The nn model used within the controller
     :param loss_fn: The loss function used to train the nn
     :param optimizer: The optmizer used to train the nn
-    :param category_vals: The rgb values used to breakup the images within the dataset
-    :param hyper_parameters: dictionary with the key parameters to train the neural network
     :return:
     """
     # Initialize the datasets
-    test_set, train_set = initialize_dataloader(hyper_parameters.dataset, category_vals,
-                                                hyper_parameters.batch_size, hyper_parameters.num_workers)
+    train_set, test_set = initialize_dataloader(network_config.dataset, network_config.classes,
+                                                network_config.batch_size, network_config.num_workers,
+                                                network_config.class_name)
     # run in a loop
-    for e in range(hyper_parameters.epochs):
+    for e in range(network_config.epochs):
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
-        test_loop(test_set, model, loss_fn, e)
-        save_model(model, e, optimizer, hyper_parameters.run_name, hyper_parameters.dataset)
+        test_loop(test_set, model, loss_fn, e, config.classes)
+        save_model(model, e, optimizer, network_config.run_name, network_config.dataset)
         writer.flush()
     print("Done!")
 
@@ -227,24 +249,32 @@ def initialize_tensorboards(run_name: str, dataset_name: str):
     return tb_writer, path
 
 
-def tensor_to_image(input: torch.tensor, classes: int = 3, is_prediction: bool = False) -> plt.figure:
+def tensor_to_image(input_tensor: torch.tensor,  rgb_map: dict, is_prediction: bool = False) -> \
+        plt.figure:
     """
     Given an input image produces a coloured segmented response for visualization
 
-    :param input: an input image with dims as expected by the nn model
-    :param classes: the number of classes used in the input
+    :param input_tensor: an input image with dims as expected by the nn model
+    :param rgb_map: rgb_map used in original image
     :param is_prediction: a boolean of whether the data is a CXWXH tensor or just 1XWXH
     :return: matplotlib figure object
     """
+    # TODO: the difference in RGB input is an issue here as need to use rgb_map[color] for cityscapes
     if is_prediction:
-        image_tensor = input.argmax(1)[0]
+        image_tensor = input_tensor.argmax(1)[0]
     else:
-        image_tensor = input[0]
+        image_tensor = input_tensor[0]
     # create a color palette, selecting a color for each class
-    palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** classes - 1])
-    colors = torch.as_tensor([i for i in range(3)])[:, None] * palette
-    colors = (colors % 255).numpy().astype("uint8")
-
+    colors = []
+    # TODO: This approach is likely slow, not sure how to improve without passing in dict type
+    if [type(k) for k in rgb_map.keys()][0] == int:  # if dict is of type int: tuple(list(rgb_triplet)
+        for color in rgb_map:
+            colors.append(list(rgb_map[color]))
+        colors = np.asarray(colors).astype('uint8')
+    else:  # if dict is of type tuple(list(rgb_triplet): int
+        for color in rgb_map:
+            colors.append(list(color))
+        colors = np.asarray(colors).astype('uint8')
     # plot the semantic segmentation predictions for each color
     r = Image.fromarray(image_tensor.byte().cpu().numpy())
     r.putpalette(colors)
@@ -254,17 +284,17 @@ def tensor_to_image(input: torch.tensor, classes: int = 3, is_prediction: bool =
     return fig
 
 
-def tensor_image_to_image(input: torch.tensor) -> plt.figure:
+def tensor_image_to_image(input_tensor: torch.tensor) -> plt.figure:
     """
     Given an input image tensor converts the image to a matplotlib object to view
 
-    :param: input of the original image (X) tensor
+    :param input_tensor: input of the original image (X) tensor
     :return: a matplotlib image
     """
 
     # convert image from GPU to CPU and use first image
-    img = input[0].cpu().numpy()
-    # rearrage order to HWC
+    img = input_tensor[0].cpu().numpy()
+    # rearrange order to HWC
     img = np.transpose(img, (1, 2, 0))
     img = np.clip(img, 0, 1)
     fig, ax = plt.subplots()
@@ -286,7 +316,7 @@ if __name__ == '__main__':
     # with profiler.profile() as prof:  # profile network_initialization
     #     with profiler.record_function("network_initialization"):
     network_model = config.model_name
-    network = SemanticSegmentation(get_model(network_model, device))
+    network = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1)), device)
     # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
@@ -295,7 +325,7 @@ if __name__ == '__main__':
     # TODO: Profiler is here but it is too big, try and profile individual processes once
     # with profiler.profile() as prof:  # profile training and testing process
     #     with profiler.record_function("learning"):
-    model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer, category_rgb_vals)
+    model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer)
     # prof.export_chrome_trace(os.path.join(tb_path, "learning_trace.json"))
     # Close the tensorboard summary writer
     writer.close()
