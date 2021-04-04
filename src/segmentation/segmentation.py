@@ -3,10 +3,11 @@ import torch
 import segmentation_models_pytorch as smp
 from models import get_model
 from config import NetworkConfig
-from dataset_manager import RunwaysDataset, split_dataset, UAVDataset
+from dataset_manager import RunwaysDataset, split_dataset, UAVDataset, CityscapesDataset
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchvision import datasets
 from torchsummary import summary
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -80,7 +81,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
     writer.add_scalar("train/avg loss", train_loss, epoch)
 
 
-def test_loop(dataloader, model, loss_fn, epoch, num_classes: int, rgb_map: dict):
+def test_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
     """
     Train the neural network with a given loss_fn and optimizer
 
@@ -88,7 +89,6 @@ def test_loop(dataloader, model, loss_fn, epoch, num_classes: int, rgb_map: dict
     :param model: the torch nn model to be trained
     :param loss_fn: the loss function used as to calculate the 'error' between X and y
     :param epoch: number of times we have gone through the loop
-    :param num_classes: the number of classes contained in the nn
     :param rgb_map: rgb_map used in original image
     :return: None
     """
@@ -106,8 +106,8 @@ def test_loop(dataloader, model, loss_fn, epoch, num_classes: int, rgb_map: dict
             correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
 
             if i_batch % 5 == 1:
-                pred_fig = tensor_to_image(pred, rgb_map, num_classes, True)
-                y_fig = tensor_to_image(y, rgb_map, num_classes, False)
+                pred_fig = tensor_to_image(pred, rgb_map, True)
+                y_fig = tensor_to_image(y, rgb_map, False)
                 X_fig = tensor_image_to_image(X)
                 writer.add_figure('prediction/'+str(i_batch), pred_fig, global_step=epoch)
                 writer.add_figure('truth/'+str(i_batch), y_fig, global_step=epoch)
@@ -150,6 +150,11 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
         test_dataset = UAVDataset(os.path.join(dirname, 'test'), labels, crop_size)
         train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
         test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+    if class_name == 'cityscapes':
+        train_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='train')
+        test_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='val')
+        train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+        test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
     else:
         print(f'Invalid class_name: {class_name}')
         raise SystemExit(0)
@@ -175,7 +180,7 @@ def model_pipeline(network_config: NetworkConfig, model: torch.nn,
     for e in range(network_config.epochs):
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
-        test_loop(test_set, model, loss_fn, e, (len(config.classes) + 1), config.classes)
+        test_loop(test_set, model, loss_fn, e, config.classes)
         save_model(model, e, optimizer, network_config.run_name, network_config.dataset)
         writer.flush()
     print("Done!")
@@ -244,27 +249,32 @@ def initialize_tensorboards(run_name: str, dataset_name: str):
     return tb_writer, path
 
 
-def tensor_to_image(input_tensor: torch.tensor,  rgb_map: dict, classes: int = 3, is_prediction: bool = False) -> \
+def tensor_to_image(input_tensor: torch.tensor,  rgb_map: dict, is_prediction: bool = False) -> \
         plt.figure:
     """
     Given an input image produces a coloured segmented response for visualization
 
     :param input_tensor: an input image with dims as expected by the nn model
     :param rgb_map: rgb_map used in original image
-    :param classes: the number of classes used in the input
     :param is_prediction: a boolean of whether the data is a CXWXH tensor or just 1XWXH
     :return: matplotlib figure object
     """
+    # TODO: the difference in RGB input is an issue here as need to use rgb_map[color] for cityscapes
     if is_prediction:
         image_tensor = input_tensor.argmax(1)[0]
     else:
         image_tensor = input_tensor[0]
     # create a color palette, selecting a color for each class
     colors = []
-    for color in rgb_map:
-        colors.append(list(color))
-    colors = np.asarray(colors).astype("uint8")
-
+    # TODO: This approach is likely slow, not sure how to improve without passing in dict type
+    if [type(k) for k in rgb_map.keys()][0] == int:  # if dict is of type int: tuple(list(rgb_triplet)
+        for color in rgb_map:
+            colors.append(list(rgb_map[color]))
+        colors = np.asarray(colors).astype('uint8')
+    else:  # if dict is of type tuple(list(rgb_triplet): int
+        for color in rgb_map:
+            colors.append(list(color))
+        colors = np.asarray(colors).astype('uint8')
     # plot the semantic segmentation predictions for each color
     r = Image.fromarray(image_tensor.byte().cpu().numpy())
     r.putpalette(colors)
