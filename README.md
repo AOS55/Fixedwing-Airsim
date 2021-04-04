@@ -28,3 +28,20 @@ Fixedwing-Airsim has several modules that can be used to control a fixedwing air
  defines properties available from the JSBSim module and controls possible I/O. 
 - [jsbsim_simulator.py](https://github.com/AOS55/Fixedwing-Airsim/blob/master/Python-Client/jsbsim_simulator.py
 ) links JSBSim to AirSim and allows for I/O out of the 2 programmes.
+
+## Attribution
+
+If you find our work useful we'd love to hear from you. If you use this repositorty as part of your research can you please cite the repository in your work:
+
+```
+@misc{FW-AirSim,
+  author = {Quessy, Alexander},
+  title = {Fixedwing-Airsim},
+  year = {2021},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/AOS55/Fixedwing-Airsim}}
+}
+```
+
+Thank you!
