@@ -94,7 +94,7 @@ class RunwaysDataset(Dataset):
 class UAVDataset(RunwaysDataset):
     """
     Loads in a dataset with the same form as the RunwaysDataset but with more categories and different transforms
-    |___test (root_dir)
+    |___validation (root_dir)
     |   |_images
     |   |_segmentation_masks
     |
@@ -124,7 +124,7 @@ class CityscapesDataset(RunwaysDataset):
     """
     Loads in the cityscapes dataset using the dataloader technique
     """
-    def __init__(self, root_dir: str, labels: dict, crop_size: tuple = (480, 852), split_type: str = 'test'):
+    def __init__(self, root_dir: str, labels: dict, crop_size: tuple = (480, 852), split_type: str = 'validation'):
         super().__init__(root_dir, labels)
         self.root_dir = root_dir
         self.labels = labels
@@ -164,14 +164,14 @@ def apply_random_crop(img: Image.Image, tgt: Image.Image, crop_size: tuple = (48
 
 def split_dataset(dataset, split_size: float = 0.25):
     """
-    Train test split
+    Train valid split
 
     :param dataset: the dataset to be split
-    :param split_size: the test to train split
+    :param split_size: the validation to train split
     """
-    train_idx_list, test_idx_list = train_test_split(list(range(len(dataset) - 1)), test_size=split_size)
-    datasets = {'train': Subset(dataset, train_idx_list), 'test': Subset(dataset, test_idx_list)}
-    return datasets
+    train_idx_list, validation_idx_list = train_test_split(list(range(len(dataset) - 1)), test_size=split_size)
+    split_set = {'train': Subset(dataset, train_idx_list), 'validation': Subset(dataset, validation_idx_list)}
+    return split_set
 
 
 if __name__ == '__main__':
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     # split_data_set = split_dataset(data_set, 0.25)
     #
     # train_dataloader = DataLoader(split_data_set['train'], batch_size=4, shuffle=False, num_workers=20)
-    # test_dataloader = DataLoader(split_data_set['test'], batch_size=4, shuffle=False, num_workers=20)
+    # validation_dataloader = DataLoader(split_data_set['validation'], batch_size=4, shuffle=False, num_workers=20)
     # for i_batch, sample_batched in enumerate(train_dataloader):
     #     print(i_batch, sample_batched['image'].size(),
     #           sample_batched['mask'].size())
@@ -212,14 +212,14 @@ if __name__ == '__main__':
     # dir_name = os.path.join(dir_name, 'data/segmentation-datasets')
     # dir_name = os.path.join(dir_name, dataset)
     # uav_train_set = UAVDataset(os.path.join(dir_name, 'train'), uavid_rgb_vals)
-    # uav_test_set = UAVDataset(os.path.join(dir_name, 'test'), uavid_rgb_vals)
+    # uav_validation_set = UAVDataset(os.path.join(dir_name, 'validation'), uavid_rgb_vals)
     # uav_train_dataloader = DataLoader(uav_train_set, batch_size=4, shuffle=False, num_workers=20)
-    # uav_test_dataloader = DataLoader(uav_test_set, batch_size=4, shuffle=False, num_workers=20)
-    # for i_batch, sample_batched in enumerate(uav_test_dataloader):
+    # uav_validation_dataloader = DataLoader(uav_validation_set, batch_size=4, shuffle=False, num_workers=20)
+    # for i_batch, sample_batched in enumerate(uav_validation_dataloader):
     #     print(i_batch, sample_batched['image'].size(),
     #           sample_batched['mask'].size())
     #     # img = sample_batched['image'][0].cpu().numpy()
-    #     # # rearrage order to HWC
+    #     # # re-arrange order to HWC
     #     # img = np.clip(img, 0, 1)
     #     # plt.imshow(img)
     #     # plt.show()
@@ -274,7 +274,7 @@ if __name__ == '__main__':
         # plt.show()
     print('fin')
 
-# for idx in range(len(test_set)):
-#     sample = test_set[idx]
+# for idx in range(len(validation_set)):
+#     sample = validation_set[idx]
 #     print(idx, sample['image'].shape, sample['mask'].shape)
 

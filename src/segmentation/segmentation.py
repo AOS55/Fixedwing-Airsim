@@ -35,8 +35,12 @@ class SemanticSegmentation(nn.Module):
             input_batch = input_batch.to(self.device)
             self.model.to(self.device)
         # with torch.no_grad():
-        output = self.model(input_batch)['out'].to(self.device)
-        return output
+        # output = self.model(input_batch)['out'].to(self.device)
+        output = self.model(input_batch)
+        if type(output) == torch.Tensor:
+            return output.to(self.device)
+        else:
+            return output['out'].to(self.device)
         # return output.argmax(0)  # returns the most likely label in a given region
 
 
@@ -63,7 +67,8 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         loss = loss_fn(pred, y)
         train_loss += loss
         correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
-        writer.add_histogram("train/prediction", y, i_batch)
+        writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
+                             / (y.shape[1] * y.shape[2]), i_batch)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -81,9 +86,9 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
     writer.add_scalar("train/avg loss", train_loss, epoch)
 
 
-def test_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
+def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
     """
-    Train the neural network with a given loss_fn and optimizer
+    Validate the neural network with a given loss_fn and optimizer
 
     :param dataloader: a dataloader class that returns random batched image and mask tensor pairs
     :param model: the torch nn model to be trained
@@ -93,7 +98,7 @@ def test_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
     :return: None
     """
     size = len(dataloader)
-    test_loss, correct = 0, 0
+    validation_loss, correct = 0, 0
 
     with torch.no_grad():
         for i_batch, sample_batched in enumerate(dataloader):
@@ -101,7 +106,7 @@ def test_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
             y = sample_batched['mask']
             pred = model(X)
             y = y.to(device)
-            test_loss += loss_fn(pred, y).item()
+            validation_loss += loss_fn(pred, y).item()
 
             correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
 
@@ -113,17 +118,17 @@ def test_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
                 writer.add_figure('truth/'+str(i_batch), y_fig, global_step=epoch)
                 writer.add_figure('input/'+str(i_batch), X_fig, global_step=epoch)
 
-    test_loss /= size
+    validation_loss /= size
     correct /= size
-    print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}% Avg loss: {test_loss:>8f} \n")
-    writer.add_scalar("test/avg accuracy", correct, epoch)
-    writer.add_scalar("test/avg loss", test_loss, epoch)
+    print(f"Validation Error: \n Accuracy: {(100 * correct):>0.1f}% Avg loss: {validation_loss:>8f} \n")
+    writer.add_scalar("val/avg accuracy", correct, epoch)
+    writer.add_scalar("val/avg loss", validation_loss, epoch)
 
 
 def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1,
                           class_name: str = 'runway', crop_size: tuple = (480, 852)):
     """
-    Generates a dataset object for to train or test the model
+    Generates a dataset object for to train or validate the model
 
     :param dataset_name: name of the dataset used with this run
     :param labels: the labels of each part of the image, the category_rgb_dict is what is used for this normally
@@ -131,7 +136,7 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
     :param num_workers: the number of workers (threads) used to do batching
     :param class_name: the name of the class the segmented image is learning from, informs the type of Dataset class
     :param crop_size: an HxW scale of the desired crop e.g. 480x852
-    :return: train_set, test_set
+    :return: train_set, validation_set
     """
     dirname = os.path.dirname(__file__)  # get the location of the root directory
     dataset = dataset_name
@@ -143,28 +148,30 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
         split_data_set = split_dataset(dataset, 0.25)
         train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False,
                                num_workers=num_workers // 2)
-        test_set = DataLoader(split_data_set['test'], batch_size=batch_size, shuffle=False,
+        validation_set = DataLoader(split_data_set['validation'], batch_size=batch_size, shuffle=False,
                               num_workers=num_workers // 2)
-    if class_name == 'uav':
+    elif class_name == 'uav':
         train_dataset = UAVDataset(os.path.join(dirname, 'train'), labels, crop_size)
-        test_dataset = UAVDataset(os.path.join(dirname, 'test'), labels, crop_size)
+        validation_dataset = UAVDataset(os.path.join(dirname, 'validation'), labels, crop_size)
         train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
-        test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
-    if class_name == 'cityscapes':
+        validation_set = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+                                                                                                        // 2)
+    elif class_name == 'cityscapes':
         train_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='train')
-        test_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='val')
+        validation_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='val')
         train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
-        test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+        validation_set = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+                                                                                                        // 2)
     else:
         print(f'Invalid class_name: {class_name}')
         raise SystemExit(0)
-    return train_set, test_set
+    return train_set, validation_set
 
 
 def model_pipeline(network_config: NetworkConfig, model: torch.nn,
                    loss_fn: torch.optim, optimizer: torch.optim) -> None:
     """
-    Procedure to make, train and test the CNN based upon the predefined hyperparameters
+    Procedure to make, train and validate the CNN based upon the predefined hyperparameters
 
     :param network_config: dictionary with the key parameters to train the neural network
     :param model: The nn model used within the controller
@@ -173,14 +180,15 @@ def model_pipeline(network_config: NetworkConfig, model: torch.nn,
     :return:
     """
     # Initialize the datasets
-    train_set, test_set = initialize_dataloader(network_config.dataset, network_config.classes,
-                                                network_config.batch_size, network_config.num_workers,
-                                                network_config.class_name)
+    train_set, validation_set = initialize_dataloader(network_config.dataset, network_config.classes,
+                                                      network_config.batch_size, network_config.num_workers,
+                                                      network_config.class_name,
+                                                      (network_config.image_height, network_config.image_width))
     # run in a loop
     for e in range(network_config.epochs):
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
-        test_loop(test_set, model, loss_fn, e, config.classes)
+        validation_loop(validation_set, model, loss_fn, e, config.classes)
         save_model(model, e, optimizer, network_config.run_name, network_config.dataset)
         writer.flush()
     print("Done!")
@@ -323,7 +331,7 @@ if __name__ == '__main__':
     sgd_optimizer = torch.optim.SGD(network.parameters(), config.learning_rate)
     # Train the model
     # TODO: Profiler is here but it is too big, try and profile individual processes once
-    # with profiler.profile() as prof:  # profile training and testing process
+    # with profiler.profile() as prof:  # profile training and validation process
     #     with profiler.record_function("learning"):
     model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer)
     # prof.export_chrome_trace(os.path.join(tb_path, "learning_trace.json"))

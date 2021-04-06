@@ -19,7 +19,7 @@ class NoSQLDB:
     def __init__(self,
                 client: MongoClient,
                 db_name: str = 'segmentation',
-                collection_name: str = 'test-dataset'):
+                collection_name: str = 'validation-dataset'):
         self.client = client
         self.db_name = db_name
         self.db = self.create_database()
@@ -78,19 +78,19 @@ class NoSQLDB:
             self.create_document_json(cur_json)
 
 
-dataset = 'meta-test'
+dataset = 'meta-validation'
 dirname = os.path.dirname(__file__)  # get the location of the root directory
 dirname = os.path.join(dirname, '../..')  # move out of segmentation source directory
 dirname = os.path.join(dirname, 'data/segmentation-datasets')  # go into segmentation-dataset dir
 metadata_dir = os.path.join(dirname + '/' + dataset + '/metadata')  # combine to go to metadata dir
 my_client = MongoClient('localhost', 27017)  # connect to database
 my_db = 'segmentation'
-edit_db = NoSQLDB(my_client, collection_name="input-test")
+edit_db = NoSQLDB(my_client, collection_name="input-validation")
 my_metadata = os.path.join(metadata_dir, '10.json')
 edit_db.create_group_json(metadata_dir)
 
 
-# test_image = "C:/Users/quessy/Documents/Year_5_PhD/Simulation/python-client/data/segmentation-datasets/fd-test/images/0.png"
+# test_image = "C:/Users/quessy/Documents/Year_5_PhD/Simulation/python-client/data/segmentation-datasets/fd-validation/images/0.png"
 # edit_db.store_image(test_image)
 
 
