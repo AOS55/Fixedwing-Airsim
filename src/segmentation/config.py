@@ -17,7 +17,7 @@ class NetworkConfig:
                  run_name: str = '480-multicct',
                  num_workers: int = 4,
                  image_height: int = 480,
-                 image_width: int = 852
+                 image_width: int = 832
                  ):
         """
         Run the parser and change the config file used
@@ -54,7 +54,7 @@ class NetworkConfig:
                                                        ' either CUDA or CPU')
         parser.add_argument('--dataset', type=str, help='the name of the dataset dir to train the nn')
         parser.add_argument('--class_name', type=str, help='the name of the class dict contained used in the nn seg '
-                                                           'map (runway_rgb_vals by default)')
+                                                           'map (runway by default)')
         parser.add_argument('--run_name', type=str, help='the name of the directory to store the results of the nn')
         parser.add_argument('--num_workers', type=int, help='the number of workers to use for batch loading')
         parser.add_argument('--image_height', type=int, help='height of RGB images if cropping images')
