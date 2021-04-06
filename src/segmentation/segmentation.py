@@ -10,7 +10,7 @@ from torch.optim import lr_scheduler
 # from torchvision import datasets
 # from torchsummary import summary
 # import torch.autograd.profiler as profiler
-from utils import save_model, initialize_tensorboards, tensor_to_image, tensor_image_to_image
+from utils import save_model, initialize_tensorboards, tensor_to_image, tensor_image_to_image, startup_print
 import copy
 
 
@@ -214,7 +214,7 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> int:
 if __name__ == '__main__':
     # Setup the nn configuration
     config = NetworkConfig()
-    print(config.epochs)
+    startup_print(config)
     # Setup the device to use
     device = torch.device(config.device if torch.cuda.is_available() else 'cpu')
     print(f"Found device: {device}")
@@ -228,8 +228,11 @@ if __name__ == '__main__':
     # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
+    # setup the optimizer
     sgd_optimizer = torch.optim.SGD(network.parameters(), config.learning_rate)
-    exp_lr_scheduler = lr_scheduler.StepLR(sgd_optimizer, step_size=7, gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.StepLR(sgd_optimizer,
+                                           step_size=config.lr_scheduler_step_size,
+                                           gamma=config.lr_depreciation)
     # Train the model
     # TODO: Profiler is here but it is too big, try and profile individual processes once
     # with profiler.profile() as prof:  # profile training and validation process
