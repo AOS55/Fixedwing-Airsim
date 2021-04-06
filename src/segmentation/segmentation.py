@@ -7,11 +7,11 @@ from dataset_manager import RunwaysDataset, split_dataset, UAVDataset, Cityscape
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import datasets
-from torchsummary import summary
+# from torchvision import datasets
+# from torchsummary import summary
 from PIL import Image
 import matplotlib.pyplot as plt
-import torch.autograd.profiler as profiler
+# import torch.autograd.profiler as profiler
 import numpy as np
 
 
@@ -56,7 +56,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
     :return: None
     """
     size = len(dataloader)
-    train_loss, correct = 0, 0
+    train_loss, correct, jaccard_loss = 0, 0, 0
     for i_batch, sample_batched in enumerate(dataloader):
         X = sample_batched['image']
         y = sample_batched['mask']
@@ -67,6 +67,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         loss = loss_fn(pred, y)
         train_loss += loss
         correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
+        jaccard_loss += smp.utils.functional.iou(pred, y).item()
         writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
                              / (y.shape[1] * y.shape[2]), i_batch)
         # Backpropagation
@@ -81,9 +82,10 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
 
     train_loss /= size
     correct /= size
-
+    jaccard_loss /= size
     writer.add_scalar("train/avg accuracy", correct, epoch)
     writer.add_scalar("train/avg loss", train_loss, epoch)
+    writer.add_scalar("train/avg IoU", jaccard_loss, epoch)
 
 
 def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
@@ -98,7 +100,7 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
     :return: None
     """
     size = len(dataloader)
-    validation_loss, correct = 0, 0
+    validation_loss, correct, jaccard_loss = 0, 0, 0
 
     with torch.no_grad():
         for i_batch, sample_batched in enumerate(dataloader):
@@ -109,8 +111,11 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
             validation_loss += loss_fn(pred, y).item()
 
             correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
+            jaccard_loss += smp.utils.functional.iou(pred, y).item()
+            writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
+                                 / (y.shape[1] * y.shape[2]), i_batch)
 
-            if i_batch % 5 == 1:
+            if i_batch % 20 == 1:
                 pred_fig = tensor_to_image(pred, rgb_map, True)
                 y_fig = tensor_to_image(y, rgb_map, False)
                 X_fig = tensor_image_to_image(X)
@@ -120,9 +125,12 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
 
     validation_loss /= size
     correct /= size
+    jaccard_loss /= size
     print(f"Validation Error: \n Accuracy: {(100 * correct):>0.1f}% Avg loss: {validation_loss:>8f} \n")
     writer.add_scalar("val/avg accuracy", correct, epoch)
     writer.add_scalar("val/avg loss", validation_loss, epoch)
+    writer.add_scalar("val/avg IoU", jaccard_loss, epoch)
+    # TODO: Jaccard-loss is doing something weird, IoU doesn't look correct
 
 
 def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1,
