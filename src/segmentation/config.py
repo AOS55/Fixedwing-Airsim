@@ -120,39 +120,6 @@ class NetworkConfig:
             tuple([192, 0, 192]): 7  # Human
         }
 
-        cityscapes_rgb_vals = {
-            tuple([0, 0, 0]): 0,  # Background Clutter
-            tuple([111, 74, 0]): 1,  # Dynamic Object
-            tuple([81, 0, 81]): 2,  # Ground
-            tuple([128, 64, 128]): 3,  # Road
-            tuple([244, 35, 232]): 4,  # Sidewalk
-            tuple([250, 170, 160]): 5,  # Parking
-            tuple([230, 150, 140]): 6,  # Rail-Track
-            tuple([70, 70, 70]): 7,  # building
-            tuple([102, 102, 156]): 8,  # wall
-            tuple([190, 153, 153]): 9,  # fence
-            tuple([180, 165, 180]): 10,  # guard-rail
-            tuple([150, 100, 100]): 11,  # bridge
-            tuple([150, 120, 90]): 12,  # tunnel
-            tuple([153, 153, 153]): 13,  # pole
-            tuple([250, 170, 30]): 14,  # traffic light
-            tuple([220, 220, 0]): 15,  # traffic sign
-            tuple([107, 142, 35]): 16,  # vegetation
-            tuple([152, 251, 152]): 17,  # terrain
-            tuple([70, 130, 180]): 18,  # sky
-            tuple([220, 20, 60]): 19,  # person
-            tuple([255, 0, 0]): 20,  # bike-rider
-            tuple([0, 0, 142]): 21,  # car
-            tuple([0, 0, 70]): 22,  # truck
-            tuple([0, 60, 100]): 23,  # bus
-            tuple([0, 0, 90]): 24,  # caravan
-            tuple([0, 0, 110]): 25,  # trailer
-            tuple([0, 80, 100]): 26,  # train
-            tuple([0, 0, 230]): 27,  # motorcycle
-            tuple([119, 11, 32]): 28,  # bicycle
-            tuple([0, 0, 142]): 30  # license plate
-        }
-
         cityscapes_labels = {
             0: (0, 0, 0),  # unlabeled
             1: (0, 0, 0),  # ego vehicle
