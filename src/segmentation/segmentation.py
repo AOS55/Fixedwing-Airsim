@@ -6,6 +6,7 @@ from config import NetworkConfig
 from dataset_manager import RunwaysDataset, split_dataset, CityscapesDataset
 from torch import nn
 from torch.utils.data import DataLoader
+from torch.optim import lr_scheduler
 # from torchvision import datasets
 # from torchsummary import summary
 # import torch.autograd.profiler as profiler
@@ -84,7 +85,7 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
 
 
 def model_pipeline(network_config: NetworkConfig, model: torch.nn,
-                   loss_fn: torch.optim, optimizer: torch.optim) -> None:
+                   loss_fn: torch.optim, optimizer: torch.optim, scheduler: lr_scheduler.StepLR) -> None:
     """
     Procedure to make, train and validate the CNN based upon the predefined hyperparameters
 
@@ -92,6 +93,7 @@ def model_pipeline(network_config: NetworkConfig, model: torch.nn,
     :param model: The nn model used within the controller
     :param loss_fn: The loss function used to train the nn
     :param optimizer: The optmizer used to train the nn
+    :param scheduler: The learning rate scheduler, to decay lr as epochs go by
     :return:
     """
     # Initialize the datasets
@@ -107,6 +109,7 @@ def model_pipeline(network_config: NetworkConfig, model: torch.nn,
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
         e_acc = validation_loop(validation_set, model, loss_fn, e, config.classes)
+        scheduler.step()  # Update the scheduler
         # Early stopping condition, only save the best model
         if e_acc > best_acc:
             best_acc = e_acc
@@ -226,11 +229,12 @@ if __name__ == '__main__':
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
     sgd_optimizer = torch.optim.SGD(network.parameters(), config.learning_rate)
+    exp_lr_scheduler = lr_scheduler.StepLR(sgd_optimizer, step_size=7, gamma=0.1)
     # Train the model
     # TODO: Profiler is here but it is too big, try and profile individual processes once
     # with profiler.profile() as prof:  # profile training and validation process
     #     with profiler.record_function("learning"):
-    model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer)
+    model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer, exp_lr_scheduler)
     # prof.export_chrome_trace(os.path.join(tb_path, "learning_trace.json"))
     # Close the tensorboard summary writer
     writer.close()
