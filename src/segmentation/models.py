@@ -9,7 +9,7 @@ def get_model(model_name: str, device, num_classes: int) -> torch.nn:
 
     :param model_name: name of model used in the program
     :param device: name of device model is hosted on
-    :param num_classes: number of clases in the model (including background 0,0,0)
+    :param num_classes: number of classes in the model (including background 0,0,0)
     :return: the nn.model to be trained
     """
     model_dict = {'deeplabv3': torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101',
