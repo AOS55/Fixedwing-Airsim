@@ -5,7 +5,7 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms, datasets
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 class RunwaysDataset(Dataset):
@@ -51,6 +51,7 @@ class RunwaysDataset(Dataset):
         input_mask = Image.open(mask_loc)
         input_image = Image.open(image_loc)
         input_image, input_mask = apply_random_crop(input_image, input_mask, self.crop_size)
+        input_image, input_mask = apply_random_flip(input_image, input_mask)
         mask_tensor = self.mask_preparation(input_mask)
         image_tensor = self.image_preparation(input_image)
         sample = {'image': image_tensor, 'mask': mask_tensor}
@@ -121,14 +122,31 @@ class CityscapesDataset(RunwaysDataset):
 
 def apply_random_crop(img: Image.Image, tgt: Image.Image, crop_size: tuple = (480, 852)):
     """
-    Apply a random crop equally to the target and the image
+    Apply a randomly located crop equally to the target and the image
 
     :param img: a PIL Image of the RGB image
     :param tgt: a PIL Image of the target image
     :param crop_size: an HxW scale of the desired crop e.g. 480x852
-    :return: the cropped img & tgt tensors
+    :return: the cropped img & tgt PIL images
     """
     t = transforms.RandomResizedCrop(crop_size)
+    state = torch.get_rng_state()
+    img = t(img)
+    torch.set_rng_state(state)
+    tgt = t(tgt)
+    return img, tgt
+
+
+def apply_random_flip(img: Image.Image, tgt: Image.Image, prob: float = 0.5):
+    """
+    Apply a horizontal flop to target and image with a given probability
+
+    :param img: a PIL Image of the RGB image
+    :param tgt: a PIL Image of the target image
+    :param prob: the probability of flipping and image
+    :return: possibly flipped image & tgt PIL images
+    """
+    t = transforms.RandomHorizontalFlip(prob)
     state = torch.get_rng_state()
     img = t(img)
     torch.set_rng_state(state)
