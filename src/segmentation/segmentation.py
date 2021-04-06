@@ -3,16 +3,14 @@ import torch
 import segmentation_models_pytorch as smp
 from models import get_model
 from config import NetworkConfig
-from dataset_manager import RunwaysDataset, split_dataset, UAVDataset, CityscapesDataset
+from dataset_manager import RunwaysDataset, split_dataset, CityscapesDataset
 from torch import nn
-from torch.utils.data import Dataset, DataLoader
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import DataLoader
 # from torchvision import datasets
 # from torchsummary import summary
-from PIL import Image
-import matplotlib.pyplot as plt
 # import torch.autograd.profiler as profiler
-import numpy as np
+from utils import save_model, initialize_tensorboards, tensor_to_image, tensor_image_to_image
+import copy
 
 
 class SemanticSegmentation(nn.Module):
@@ -34,14 +32,90 @@ class SemanticSegmentation(nn.Module):
         if torch.cuda.is_available():
             input_batch = input_batch.to(self.device)
             self.model.to(self.device)
-        # with torch.no_grad():
-        # output = self.model(input_batch)['out'].to(self.device)
         output = self.model(input_batch)
         if type(output) == torch.Tensor:
             return output.to(self.device)
         else:
             return output['out'].to(self.device)
         # return output.argmax(0)  # returns the most likely label in a given region
+
+
+def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1,
+                          class_name: str = 'runway', crop_size: tuple = (480, 852)):
+    """
+    Generates a dataset object for to train or validate the model
+
+    :param dataset_name: name of the dataset used with this run
+    :param labels: the labels of each part of the image, the category_rgb_dict is what is used for this normally
+    :param batch_size: the size of each batch used to train the agent
+    :param num_workers: the number of workers (threads) used to do batching
+    :param class_name: the name of the class the segmented image is learning from, informs the type of Dataset class
+    :param crop_size: an HxW scale of the desired crop e.g. 480x852
+    :return: train_set, validation_set
+    """
+    dirname = os.path.dirname(__file__)  # get the location of the root directory
+    dataset = dataset_name
+    dirname = os.path.join(dirname, '../..')
+    dirname = os.path.join(dirname, 'data/segmentation-datasets')
+    dirname = os.path.join(dirname, dataset)
+    if class_name == 'runway':
+        dataset = RunwaysDataset(dirname, labels)
+        split_data_set = split_dataset(dataset, 0.25)
+        train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False,
+                               num_workers=num_workers // 2)
+        validation_set = DataLoader(split_data_set['validation'], batch_size=batch_size, shuffle=False,
+                              num_workers=num_workers // 2)
+    elif class_name == 'uav':
+        train_dataset = RunwaysDataset(os.path.join(dirname, 'train'), labels, crop_size=crop_size)
+        validation_dataset = RunwaysDataset(os.path.join(dirname, 'validation'), labels, crop_size=crop_size)
+        train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+        validation_set = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+                                                                                                        // 2)
+    elif class_name == 'cityscapes':
+        train_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='train')
+        validation_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='val')
+        train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
+        validation_set = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+                                                                                                        // 2)
+    else:
+        print(f'Invalid class_name: {class_name}')
+        raise SystemExit(0)
+    return train_set, validation_set
+
+
+def model_pipeline(network_config: NetworkConfig, model: torch.nn,
+                   loss_fn: torch.optim, optimizer: torch.optim) -> None:
+    """
+    Procedure to make, train and validate the CNN based upon the predefined hyperparameters
+
+    :param network_config: dictionary with the key parameters to train the neural network
+    :param model: The nn model used within the controller
+    :param loss_fn: The loss function used to train the nn
+    :param optimizer: The optmizer used to train the nn
+    :return:
+    """
+    # Initialize the datasets
+    train_set, validation_set = initialize_dataloader(network_config.dataset, network_config.classes,
+                                                      network_config.batch_size, network_config.num_workers,
+                                                      network_config.class_name,
+                                                      (network_config.image_height, network_config.image_width))
+    best_acc = 0
+    best_e = 0
+    best_model = copy.deepcopy(model)
+    # optimize weights and biases
+    for e in range(network_config.epochs):
+        print(f"Epoch {e + 1}\n-----------")
+        train_loop(train_set, model, loss_fn, optimizer, e)
+        e_acc = validation_loop(validation_set, model, loss_fn, e, config.classes)
+        # Early stopping condition, only save the best model
+        if e_acc > best_acc:
+            best_acc = e_acc
+            best_model = copy.deepcopy(model)
+            best_e = e
+        writer.flush()
+
+    save_model(best_model, best_e, optimizer, network_config.run_name, network_config.dataset)
+    print("Done!")
 
 
 def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
@@ -88,7 +162,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
     writer.add_scalar("train/avg IoU", jaccard_loss, epoch)
 
 
-def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
+def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> int:
     """
     Validate the neural network with a given loss_fn and optimizer
 
@@ -97,7 +171,7 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
     :param loss_fn: the loss function used as to calculate the 'error' between X and y
     :param epoch: number of times we have gone through the loop
     :param rgb_map: rgb_map used in original image
-    :return: None
+    :return: avg_loss
     """
     size = len(dataloader)
     validation_loss, correct, jaccard_loss = 0, 0, 0
@@ -131,195 +205,10 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict):
     writer.add_scalar("val/avg loss", validation_loss, epoch)
     writer.add_scalar("val/avg IoU", jaccard_loss, epoch)
     # TODO: Jaccard-loss is doing something weird, IoU doesn't look correct
-
-
-def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, num_workers: int = 1,
-                          class_name: str = 'runway', crop_size: tuple = (480, 852)):
-    """
-    Generates a dataset object for to train or validate the model
-
-    :param dataset_name: name of the dataset used with this run
-    :param labels: the labels of each part of the image, the category_rgb_dict is what is used for this normally
-    :param batch_size: the size of each batch used to train the agent
-    :param num_workers: the number of workers (threads) used to do batching
-    :param class_name: the name of the class the segmented image is learning from, informs the type of Dataset class
-    :param crop_size: an HxW scale of the desired crop e.g. 480x852
-    :return: train_set, validation_set
-    """
-    dirname = os.path.dirname(__file__)  # get the location of the root directory
-    dataset = dataset_name
-    dirname = os.path.join(dirname, '../..')
-    dirname = os.path.join(dirname, 'data/segmentation-datasets')
-    dirname = os.path.join(dirname, dataset)
-    if class_name == 'runway':
-        dataset = RunwaysDataset(dirname, labels)
-        split_data_set = split_dataset(dataset, 0.25)
-        train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False,
-                               num_workers=num_workers // 2)
-        validation_set = DataLoader(split_data_set['validation'], batch_size=batch_size, shuffle=False,
-                              num_workers=num_workers // 2)
-    elif class_name == 'uav':
-        train_dataset = UAVDataset(os.path.join(dirname, 'train'), labels, crop_size)
-        validation_dataset = UAVDataset(os.path.join(dirname, 'validation'), labels, crop_size)
-        train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
-        validation_set = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
-                                                                                                        // 2)
-    elif class_name == 'cityscapes':
-        train_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='train')
-        validation_dataset = CityscapesDataset(dirname, labels, crop_size=crop_size, split_type='val')
-        train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers // 2)
-        validation_set = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
-                                                                                                        // 2)
-    else:
-        print(f'Invalid class_name: {class_name}')
-        raise SystemExit(0)
-    return train_set, validation_set
-
-
-def model_pipeline(network_config: NetworkConfig, model: torch.nn,
-                   loss_fn: torch.optim, optimizer: torch.optim) -> None:
-    """
-    Procedure to make, train and validate the CNN based upon the predefined hyperparameters
-
-    :param network_config: dictionary with the key parameters to train the neural network
-    :param model: The nn model used within the controller
-    :param loss_fn: The loss function used to train the nn
-    :param optimizer: The optmizer used to train the nn
-    :return:
-    """
-    # Initialize the datasets
-    train_set, validation_set = initialize_dataloader(network_config.dataset, network_config.classes,
-                                                      network_config.batch_size, network_config.num_workers,
-                                                      network_config.class_name,
-                                                      (network_config.image_height, network_config.image_width))
-    # run in a loop
-    for e in range(network_config.epochs):
-        print(f"Epoch {e + 1}\n-----------")
-        train_loop(train_set, model, loss_fn, optimizer, e)
-        validation_loop(validation_set, model, loss_fn, e, config.classes)
-        save_model(model, e, optimizer, network_config.run_name, network_config.dataset)
-        writer.flush()
-    print("Done!")
-
-
-def save_model(model: torch.nn, epoch: int, optimizer: torch.optim, run_name: str, dataset_name: str) -> None:
-    """
-    Save the key model values at various points in time
-
-    :param model: the torch nn model
-    :param epoch: the number of epochs to run the model for
-    :param optimizer: the optimizer used to train the nn model
-    :param run_name: the name of the directory to store all the tensors from this run into
-    :param dataset_name: the name of the dataset for this experiment
-    :return: None
-    """
-    path = os.path.dirname(__file__)  # get the location of the root directory
-    path = os.path.join(path, '../..')  # go to upper level
-    path = os.path.join(path, 'runs/deeplab-runs')  # go to segmentation dataset
-    path = os.path.join(path, dataset_name)  # go to runs dataset dir
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    path = os.path.join(path, 'models')
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    path = os.path.join(path, run_name)
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    state = {
-        'epoch': epoch,
-        'state_dict': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        # 'paramaters': summary(model, model.shape)  # I don't know how to use this?
-    }
-    save_path = os.path.join(path, str(epoch) + '.pt')
-    torch.save(state, save_path)
-
-
-def initialize_tensorboards(run_name: str, dataset_name: str):
-    """
-    Setup the tensorboard writer and the tensorboard run directory
-
-    :param run_name: the name of the directory to store the tensorboard
-    :param dataset_name: the name of the dataset for this experiment
-    :return: the tensorboard summary writer object & path to the tb file
-    """
-    path = os.path.dirname(__file__)  # get the location of the root directory
-    path = os.path.join(path, '../..')  # go to upper level
-    path = os.path.join(path, 'runs/deeplab-runs')  # go to segmentation dataset
-    path = os.path.join(path, dataset_name)  # go to runs dataset dir
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    path = os.path.join(path, 'tensor_boards')
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    path = os.path.join(path, run_name)  # go to specific model dir
-    ver = 0
-    path_tmp = path + 'ver' + str(ver)
-    while os.path.exists(path_tmp):
-        ver += 1
-        path_tmp = path + 'ver' + str(ver)
-    path = path_tmp
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    tb_writer = SummaryWriter(path)
-    return tb_writer, path
-
-
-def tensor_to_image(input_tensor: torch.tensor,  rgb_map: dict, is_prediction: bool = False) -> \
-        plt.figure:
-    """
-    Given an input image produces a coloured segmented response for visualization
-
-    :param input_tensor: an input image with dims as expected by the nn model
-    :param rgb_map: rgb_map used in original image
-    :param is_prediction: a boolean of whether the data is a CXWXH tensor or just 1XWXH
-    :return: matplotlib figure object
-    """
-    # TODO: the difference in RGB input is an issue here as need to use rgb_map[color] for cityscapes
-    if is_prediction:
-        image_tensor = input_tensor.argmax(1)[0]
-    else:
-        image_tensor = input_tensor[0]
-    # create a color palette, selecting a color for each class
-    colors = []
-    # TODO: This approach is likely slow, not sure how to improve without passing in dict type
-    if [type(k) for k in rgb_map.keys()][0] == int:  # if dict is of type int: tuple(list(rgb_triplet)
-        for color in rgb_map:
-            colors.append(list(rgb_map[color]))
-        colors = np.asarray(colors).astype('uint8')
-    else:  # if dict is of type tuple(list(rgb_triplet): int
-        for color in rgb_map:
-            colors.append(list(color))
-        colors = np.asarray(colors).astype('uint8')
-    # plot the semantic segmentation predictions for each color
-    r = Image.fromarray(image_tensor.byte().cpu().numpy())
-    r.putpalette(colors)
-
-    fig, ax = plt.subplots()
-    ax.imshow(r)
-    return fig
-
-
-def tensor_image_to_image(input_tensor: torch.tensor) -> plt.figure:
-    """
-    Given an input image tensor converts the image to a matplotlib object to view
-
-    :param input_tensor: input of the original image (X) tensor
-    :return: a matplotlib image
-    """
-
-    # convert image from GPU to CPU and use first image
-    img = input_tensor[0].cpu().numpy()
-    # rearrange order to HWC
-    img = np.transpose(img, (1, 2, 0))
-    img = np.clip(img, 0, 1)
-    fig, ax = plt.subplots()
-    ax.imshow(img)
-    return fig
+    return validation_loss
 
 
 if __name__ == '__main__':
-
     # Setup the nn configuration
     config = NetworkConfig()
     print(config.epochs)
