@@ -4,6 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
+import textwrap
 
 
 def save_model(model_state_dict: dict, epoch: int,
@@ -123,3 +124,21 @@ def tensor_image_to_image(input_tensor: torch.tensor) -> plt.figure:
     fig, ax = plt.subplots()
     ax.imshow(img)
     return fig
+
+
+def startup_print(config):
+    print(textwrap.dedent(f"""\
+                Starting segmentation training with following parameters:
+                DATASET_NAME: {config.dataset}
+                CLASS_NAME: {config.class_name}
+                RUN_NAME: {config.run_name}
+                EPOCHS: {config.epochs}
+                BATCH SIZE: {config.batch_size}
+                LEARNING RATE: {config.learning_rate}
+                LR DEPRECIATION [GAMMA]: {config.lr_depreciation}
+                LR STEPS: {config.lr_scheduler_step_size}
+                IMAGE HEIGHT: {config.image_height}
+                IMAGE WIDTH: {config.image_width}
+                DEVICE: {config.device}
+                NUMBER OF WORKERS: {config.num_workers}
+                """))
