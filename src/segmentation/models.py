@@ -1,5 +1,5 @@
-import torch
 import segmentation_models_pytorch as smp
+import torch
 import torchvision.models as models
 
 
@@ -18,7 +18,11 @@ def get_model(model_name: str, device, num_classes: int) -> torch.nn:
                                                    encoder_weights=None, classes=num_classes).to(device).eval(),
                   'deeplabv3plus': smp.DeepLabV3Plus(encoder_name='resnet101', encoder_depth=5,
                                                      encoder_weights=None, classes=num_classes).to(device).eval(),
-                  'resnet18': models.segmentation.fcn_resnet50(pretrained=False, num_classes=num_classes)}
+                  'resnet50': models.segmentation.fcn_resnet50(pretrained=False, num_classes=num_classes).to(
+                      device).eval(),
+                  'lraspp_mobile': models.segmentation.lraspp_mobilenet_v3_large(pretrained=False,
+                                                                                 num_classes=num_classes).to(
+                      device).eval()}
     try:
         model = model_dict[model_name]
     except KeyError:

@@ -9,6 +9,8 @@ class NetworkConfig:
     def __init__(self,
                  epochs: int = 20,
                  learning_rate: float = 1e-3,
+                 lr_scheduler_step_size: int = 7,
+                 lr_depreciation: float = 0.1,
                  batch_size: int = 1,
                  model_name: str = 'resnet18',
                  device: str = 'cuda',
@@ -24,6 +26,8 @@ class NetworkConfig:
         """
         self.epochs = epochs
         self.learning_rate = learning_rate
+        self.lr_scheduler_step_size = lr_scheduler_step_size
+        self.lr_depreciation = lr_depreciation
         self.batch_size = batch_size
         self.model_name = model_name
         self.device = device
@@ -47,6 +51,8 @@ class NetworkConfig:
         parser = argparse.ArgumentParser(description='CNN configuration')
         parser.add_argument('--epochs', type=int, help='number of times to run the dataset through the nn')
         parser.add_argument('--learning_rate', type=float, help='how much to update the weights and biases by [0-1]')
+        parser.add_argument('--lr_scheduler_step_size', type=int, help='how many epochs before learning rate decreased')
+        parser.add_argument('--lr_depreciation', type=float, help='[gamma] how much to decrease learning rate by')
         parser.add_argument('--batch_size', type=int, help='the number of samples to propogate through the network on '
                                                            'each pass')
         parser.add_argument('--model_name', type=str, help='the name of the nn model used')
@@ -72,6 +78,10 @@ class NetworkConfig:
             self.epochs = self.parser_args.epochs
         if self.parser_args.learning_rate:
             self.learning_rate = self.parser_args.learning_rate
+        if self.parser_args.lr_scheduler_step_size:
+            self.lr_scheduler_step_size = self.parser_args.lr_scheduler_step_size
+        if self.parser_args.lr_depreciation:
+            self.lr_depreciation = self.parser_args.lr_depreciation
         if self.parser_args.batch_size:
             self.batch_size = self.parser_args.batch_size
         if self.parser_args.model_name:
