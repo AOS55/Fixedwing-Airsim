@@ -10,7 +10,8 @@ from torch.optim import lr_scheduler
 # from torchvision import datasets
 # from torchsummary import summary
 # import torch.autograd.profiler as profiler
-from utils import save_model, initialize_tensorboards, tensor_to_image, tensor_image_to_image, startup_print
+from utils import save_model, initialize_tensorboards, tensor_to_image, tensor_image_to_image, startup_print, \
+    get_sample_mean
 import copy
 
 
@@ -144,7 +145,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         loss = loss_fn(pred, y)
         train_loss += loss
         correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
-        jaccard_loss += smp.utils.functional.iou(pred, y).item()
+        # jaccard_loss += smp.utils.functional.iou(pred, y).item()
         writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
                              / (y.shape[1] * y.shape[2]), i_batch)
         # Backpropagation
@@ -159,13 +160,13 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
 
     train_loss /= size
     correct /= size
-    jaccard_loss /= size
+    # jaccard_loss /= size
     writer.add_scalar("train/avg accuracy", correct, epoch)
     writer.add_scalar("train/avg loss", train_loss, epoch)
-    writer.add_scalar("train/avg IoU", jaccard_loss, epoch)
+    # writer.add_scalar("train/avg IoU", jaccard_loss, epoch)
 
 
-def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> int:
+def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> float:
     """
     Validate the neural network with a given loss_fn and optimizer
 
@@ -177,18 +178,18 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> int:
     :return: avg_loss
     """
     size = len(dataloader)
-    validation_loss, correct, jaccard_loss = 0, 0, 0
-
+    validation_loss, correct, jaccard_loss = [], [], []
     with torch.no_grad():
         for i_batch, sample_batched in enumerate(dataloader):
             X = sample_batched['image']
             y = sample_batched['mask']
             pred = model(X)
             y = y.to(device)
-            validation_loss += loss_fn(pred, y).item()
 
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
-            jaccard_loss += smp.utils.functional.iou(pred, y).item()
+            validation_loss.append(loss_fn(pred, y).item())
+            correct.append((pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2]))
+            # jaccard_loss.append(smp.utils.functional.iou(pred, y).item())
+
             writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
                                  / (y.shape[1] * y.shape[2]), i_batch)
 
@@ -200,15 +201,15 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> int:
                 writer.add_figure('truth/'+str(i_batch), y_fig, global_step=epoch)
                 writer.add_figure('input/'+str(i_batch), X_fig, global_step=epoch)
 
-    validation_loss /= size
-    correct /= size
-    jaccard_loss /= size
-    print(f"Validation Error: \n Accuracy: {(100 * correct):>0.1f}% Avg loss: {validation_loss:>8f} \n")
-    writer.add_scalar("val/avg accuracy", correct, epoch)
-    writer.add_scalar("val/avg loss", validation_loss, epoch)
-    writer.add_scalar("val/avg IoU", jaccard_loss, epoch)
-    # TODO: Jaccard-loss is doing something weird, IoU doesn't look correct
-    return validation_loss
+    validation_mean = get_sample_mean(validation_loss)
+    correct_mean = get_sample_mean(correct)
+    # jarrard_mean = get_sample_mean(jaccard_loss)
+    print(f"Validation Error: \n Accuracy: {(100 * correct_mean):>0.1f}% Avg loss: {validation_mean:>8f} \n")
+    writer.add_scalar("val/avg accuracy", correct_mean, epoch)
+    writer.add_scalar("val/avg loss", validation_mean, epoch)
+    # writer.add_scalar("val/avg IoU", jarrard_mean, epoch)
+    # TODO: Jacquard-loss is doing something weird, IoU doesn't look correct
+    return validation_mean
 
 
 if __name__ == '__main__':
