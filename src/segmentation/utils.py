@@ -5,6 +5,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 import textwrap
+import math
 
 
 def save_model(model_state_dict: dict, epoch: int,
@@ -142,3 +143,67 @@ def startup_print(config):
                 DEVICE: {config.device}
                 NUMBER OF WORKERS: {config.num_workers}
                 """))
+
+
+def get_sample_mean(values: list) -> float:
+    """
+    Calculates the sample mean (overline x) of the elements in a list
+
+    :param values: list of values
+    :return: sample mean
+    """
+    sample_mean = sum(values) / len(values)
+    return sample_mean
+
+
+def get_sample_variance(values: list) -> float:
+    """
+    Calculates the sample variance (S^2) of the elements in a list
+
+    :param values: list of values
+    :return: sample variance
+    """
+    sample_mean = get_sample_mean(values)
+    sample_variance = sum([x - sample_mean for x in values]) / (len(values) - 1)
+    return sample_variance
+
+
+def get_student_t(values: list, representative_mean: float) -> float:
+    """
+    Calculate one-sample t-test for student's t distribution of CI-bounds, this assumes a gaussian with more samples.
+    By central limit therom this test assumes sample mean is normal (don't know if that is true)
+
+    :param values: list of values
+    :param representative_mean: the mean expected from a large distribution, that is gaussian
+    :return: one-sample student t-test
+    """
+    t = (get_sample_mean(values) - representative_mean) / math.sqrt(get_sample_variance(values) / len(list))
+    return t
+
+
+def get_gaussian_interval(values: list, z_score: float = 1.96) -> float:
+    """
+    Calculate the confidence interval if the mean of the values is representative of a gaussian distribution
+
+    :param values: list of values
+    :param z_score: the corresponding value of Phi(z) from a standard-normal distribution (mu=0 2sigma=1) 95% by default
+    :return: sample variance
+    """
+    sample_mean = get_sample_mean(values)
+    interval = z_score * math.sqrt(abs((sample_mean * (1 - sample_mean)) / len(values)))
+    return interval
+
+
+# Think very carefully about this section
+
+
+# def get_wilson_score(values: list) -> float:
+#     """
+#     Calculate the wilson score, a CI bound for the probability of successes calculated from the outcome of a series
+#     of Bernoulli trials.
+#
+#     ...
+#     Binomial proportion confidence intervals assume samples are drawn from a binomial distribution. Where the
+#     probability of binomial success
+#     """
+
