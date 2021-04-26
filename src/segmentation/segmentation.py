@@ -216,6 +216,7 @@ if __name__ == '__main__':
     # Setup the nn configuration
     config = NetworkConfig()
     startup_print(config)
+    print(config.dataset)
     # Setup the device to use
     device = torch.device(config.device if torch.cuda.is_available() else 'cpu')
     print(f"Found device: {device}")
@@ -225,7 +226,8 @@ if __name__ == '__main__':
     # with profiler.profile() as prof:  # profile network_initialization
     #     with profiler.record_function("network_initialization"):
     network_model = config.model_name
-    network = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1)), device)
+    pretrained = config.pretrained
+    network = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1), pretrained), device)
     # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
