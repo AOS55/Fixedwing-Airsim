@@ -1,6 +1,6 @@
-import segmentation_models_pytorch as smp
+# import segmentation_models_pytorch as smp
 import torch
-import torchvision.models as models
+# import torchvision.models as models
 
 
 def get_model(model_name: str, device, num_classes: int, pretrained: bool = False) -> torch.nn:
@@ -13,17 +13,22 @@ def get_model(model_name: str, device, num_classes: int, pretrained: bool = Fals
     :param pretrained: boolean of starting on a pretrained model
     :return: the nn.model to be trained
     """
-    model_dict = {'deeplabv3': torch.hub.load('pytorch/vision:v0.9.0', 'deeplabv3_resnet101',
-                                              pretrained=pretrained, num_classes=num_classes).to(device).eval(),
-                  'UnetPlusPlus': smp.UnetPlusPlus(encoder_name='resnet34', encoder_depth=5,
-                                                   encoder_weights=None, classes=num_classes).to(device).eval(),
-                  'deeplabv3plus': smp.DeepLabV3Plus(encoder_name='resnet101', encoder_depth=5,
-                                                     encoder_weights=None, classes=num_classes).to(device).eval(),
-                  'resnet50': models.segmentation.fcn_resnet50(pretrained=pretrained, num_classes=num_classes).to(
+    model_dict = {'fcn_resnet50': torch.hub.load('pytorch/vision', 'fcn_resnet50', pretrained=pretrained,
+                                                 num_classes=num_classes).to(device).eval(),
+                  'fcn_resnet101': torch.hub.load('pytorch/vision', 'fcn_resnet101', pretrained=pretrained,
+                                                  num_classes=num_classes).to(device).eval(),
+                  'deeplabv3_resnet50': torch.hub.load('pytorch/vision', 'deeplabv3_resnet50', pretrained=pretrained,
+                                                       num_classes=num_classes).to(device).eval(),
+                  'deeplabv3_resnet101': torch.hub.load('pytorch/vision', 'deeplabv3_resnet101',
+                                                        pretrained=pretrained, num_classes=num_classes).to(
                       device).eval(),
-                  'lraspp_mobile': models.segmentation.lraspp_mobilenet_v3_large(pretrained=pretrained,
-                                                                                 num_classes=num_classes).to(
-                      device).eval()}
+                  'deeplabv3_mobilenet_v3_large': torch.hub.load('pytorch/vision', 'deeplabv3_mobilenet_v3_large',
+                                                                 pretrained=pretrained, num_classes=num_classes).to(
+                      device).eval(),
+                  'lraspp_mobilenet_v3_large': torch.hub.load('pytorch/vision', 'lraspp_mobilenet_v3_large',
+                                                              pretrained=pretrained, num_classes=num_classes).to(
+                      device).eval()
+                  }
     try:
         model = model_dict[model_name]
     except KeyError:
