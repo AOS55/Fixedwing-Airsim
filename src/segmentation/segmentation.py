@@ -64,9 +64,9 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
         dataset = RunwaysDataset(dirname, labels)
         split_data_set = split_dataset(dataset, 0.25)
         train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False,
-                               num_workers=num_workers // 2)
+                               num_workers=num_workers // 2, drop_last=True)
         validation_set = DataLoader(split_data_set['validation'], batch_size=batch_size, shuffle=False,
-                              num_workers=num_workers // 2)
+                              num_workers=num_workers // 2, drop_last=True)
     elif class_name == 'uav':
         train_dataset = RunwaysDataset(os.path.join(dirname, 'train'), labels, crop_size=crop_size)
         validation_dataset = RunwaysDataset(os.path.join(dirname, 'validation'), labels, crop_size=crop_size)
