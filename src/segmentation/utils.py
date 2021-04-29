@@ -142,6 +142,7 @@ def startup_print(config):
                 IMAGE WIDTH: {config.image_width}
                 DEVICE: {config.device}
                 NUMBER OF WORKERS: {config.num_workers}
+                PRETRAINED: {config.pretrained}
                 """))
 
 
