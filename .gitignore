@@ -4,9 +4,11 @@
 *.pyc
 *.iml
 *.out
+*.csv
 
 runs
 data
 /venv/
 .*
 /__pycache__/
+src/segmentation/report_plotting.py

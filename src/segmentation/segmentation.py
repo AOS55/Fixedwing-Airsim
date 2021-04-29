@@ -64,9 +64,9 @@ def initialize_dataloader(dataset_name: str, labels: dict, batch_size: int = 4, 
         dataset = RunwaysDataset(dirname, labels)
         split_data_set = split_dataset(dataset, 0.25)
         train_set = DataLoader(split_data_set['train'], batch_size=batch_size, shuffle=False,
-                               num_workers=num_workers // 2)
+                               num_workers=num_workers // 2, drop_last=True)
         validation_set = DataLoader(split_data_set['validation'], batch_size=batch_size, shuffle=False,
-                              num_workers=num_workers // 2)
+                              num_workers=num_workers // 2, drop_last=True)
     elif class_name == 'uav':
         train_dataset = RunwaysDataset(os.path.join(dirname, 'train'), labels, crop_size=crop_size)
         validation_dataset = RunwaysDataset(os.path.join(dirname, 'validation'), labels, crop_size=crop_size)
@@ -216,6 +216,7 @@ if __name__ == '__main__':
     # Setup the nn configuration
     config = NetworkConfig()
     startup_print(config)
+    print(config.dataset)
     # Setup the device to use
     device = torch.device(config.device if torch.cuda.is_available() else 'cpu')
     print(f"Found device: {device}")
@@ -225,7 +226,8 @@ if __name__ == '__main__':
     # with profiler.profile() as prof:  # profile network_initialization
     #     with profiler.record_function("network_initialization"):
     network_model = config.model_name
-    network = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1)), device)
+    pretrained = config.pretrained
+    network = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1), pretrained), device)
     # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()

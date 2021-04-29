@@ -17,6 +17,7 @@ class NetworkConfig:
                  dataset: str = '480-multicct',
                  class_name: str = 'runway',
                  run_name: str = '480-multicct',
+                 pretrained: bool = False,
                  num_workers: int = 4,
                  image_height: int = 480,
                  image_width: int = 832
@@ -34,6 +35,7 @@ class NetworkConfig:
         self.dataset = dataset
         self.class_name = class_name
         self.run_name = run_name
+        self.pretrained = pretrained
         self.num_workers = num_workers
         self.image_height = image_height
         self.image_width = image_width
@@ -62,6 +64,7 @@ class NetworkConfig:
         parser.add_argument('--class_name', type=str, help='the name of the class dict contained used in the nn seg '
                                                            'map (runway by default)')
         parser.add_argument('--run_name', type=str, help='the name of the directory to store the results of the nn')
+        parser.add_argument('--pretrained', type=bool, help='boolean of starting on a pretrained model')
         parser.add_argument('--num_workers', type=int, help='the number of workers to use for batch loading')
         parser.add_argument('--image_height', type=int, help='height of RGB images if cropping images')
         parser.add_argument('--image_width', type=int, help='the width of RGB images if cropping images')
@@ -97,6 +100,8 @@ class NetworkConfig:
         else:
             self.run_name = 'mn' + self.model_name + 'eps' + str(self.epochs) + 'lr' + str(self.learning_rate) + 'bs' \
                             + str(self.batch_size)
+        if self.parser_args.pretrained:
+            self.pretrained = self.parser_args.pretrained
         if self.parser_args.num_workers:
             self.num_workers = self.parser_args.num_workers
         if self.parser_args.image_height:

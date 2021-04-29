@@ -120,7 +120,7 @@ class CityscapesDataset(RunwaysDataset):
         return sample
 
 
-def apply_random_crop(img: Image.Image, tgt: Image.Image, crop_size: tuple = (480, 852)):
+def apply_random_crop(img: Image.Image, tgt: Image.Image, crop_size: tuple = (480, 720)):
     """
     Apply a randomly located crop equally to the target and the image
 
