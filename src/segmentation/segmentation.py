@@ -227,12 +227,15 @@ if __name__ == '__main__':
     #     with profiler.record_function("network_initialization"):
     network_model = config.model_name
     pretrained = config.pretrained
-    network = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1), pretrained), device)
+    model = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1), pretrained), device)
+    if torch.cuda.device_count() > 1:
+        print(f"Lets use {torch.cuda.device_count()}, GPUs!")
+        model = nn.DataParallel(model)
     # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
     # setup the optimizer
-    sgd_optimizer = torch.optim.SGD(network.parameters(), config.learning_rate)
+    sgd_optimizer = torch.optim.SGD(model.parameters(), config.learning_rate)
     exp_lr_scheduler = lr_scheduler.StepLR(sgd_optimizer,
                                            step_size=config.lr_scheduler_step_size,
                                            gamma=config.lr_depreciation)
@@ -240,7 +243,7 @@ if __name__ == '__main__':
     # TODO: Profiler is here but it is too big, try and profile individual processes once
     # with profiler.profile() as prof:  # profile training and validation process
     #     with profiler.record_function("learning"):
-    model_pipeline(config, network, cross_entropy_loss_fn, sgd_optimizer, exp_lr_scheduler)
+    model_pipeline(config, model, cross_entropy_loss_fn, sgd_optimizer, exp_lr_scheduler)
     # prof.export_chrome_trace(os.path.join(tb_path, "learning_trace.json"))
     # Close the tensorboard summary writer
     writer.close()
