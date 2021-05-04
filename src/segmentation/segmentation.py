@@ -156,11 +156,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
-<<<<<<< Updated upstream
             # writer.add_graph(model, X)
-=======
-            #  writer.add_graph(model, X)
->>>>>>> Stashed changes
 
     train_loss /= size
     correct /= size
@@ -237,11 +233,8 @@ if __name__ == '__main__':
     if torch.cuda.device_count() > 1:
         print(f"Lets use {torch.cuda.device_count()}, GPUs!")
         model = nn.DataParallel(model).to(device)
-<<<<<<< Updated upstream
     model.to(device)
 
-=======
->>>>>>> Stashed changes
     # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
