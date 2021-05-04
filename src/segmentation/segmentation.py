@@ -109,7 +109,7 @@ def model_pipeline(network_config: NetworkConfig, model: torch.nn,
     for e in range(network_config.epochs):
         print(f"Epoch {e + 1}\n-----------")
         train_loop(train_set, model, loss_fn, optimizer, e)
-        e_acc = validation_loop(validation_set, model, loss_fn, e, config.classes)
+        e_acc = validation_loop(validation_set, model, loss_fn, e, config.classes, config.batch_size)
         scheduler.step()  # Update the scheduler
         # Early stopping condition, only save the best model
         if e_acc > best_acc:
@@ -146,8 +146,8 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         train_loss += loss
         correct += (pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2])
         # jaccard_loss += smp.utils.functional.iou(pred, y).item()
-        writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
-                             / (y.shape[1] * y.shape[2]), i_batch)
+        # writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
+        #                      / (y.shape[1] * y.shape[2]), i_batch)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -156,7 +156,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
-            writer.add_graph(model, X)
+            # writer.add_graph(model, X)
 
     train_loss /= size
     correct /= size
@@ -166,7 +166,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
     # writer.add_scalar("train/avg IoU", jaccard_loss, epoch)
 
 
-def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> float:
+def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict, batch_size: int) -> float:
     """
     Validate the neural network with a given loss_fn and optimizer
 
@@ -175,6 +175,7 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> float:
     :param loss_fn: the loss function used as to calculate the 'error' between X and y
     :param epoch: number of times we have gone through the loop
     :param rgb_map: rgb_map used in original image
+    :param batch_size: number of batches used to train on
     :return: avg_loss
     """
     size = len(dataloader)
@@ -204,7 +205,8 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict) -> float:
     validation_mean = get_sample_mean(validation_loss)
     correct_mean = get_sample_mean(correct)
     # jarrard_mean = get_sample_mean(jaccard_loss)
-    print(f"Validation Error: \n Accuracy: {(100 * correct_mean):>0.1f}% Avg loss: {validation_mean:>8f} \n")
+    print(f"Validation Error: \n Accuracy: {(100 * correct_mean / batch_size):>0.1f}% Avg loss: "
+          f"{validation_mean / batch_size:>8f} \n")
     writer.add_scalar("val/avg accuracy", correct_mean, epoch)
     writer.add_scalar("val/avg loss", validation_mean, epoch)
     # writer.add_scalar("val/avg IoU", jarrard_mean, epoch)
@@ -230,7 +232,9 @@ if __name__ == '__main__':
     model = SemanticSegmentation(get_model(network_model, device, (len(config.classes) + 1), pretrained), device)
     if torch.cuda.device_count() > 1:
         print(f"Lets use {torch.cuda.device_count()}, GPUs!")
-        model = nn.DataParallel(model)
+        model = nn.DataParallel(model).to(device)
+    model.to(device)
+
     # prof.export_chrome_trace(os.path.join(tb_path, "network_trace.json"))
     # Initialize the loss function
     cross_entropy_loss_fn = nn.CrossEntropyLoss()
