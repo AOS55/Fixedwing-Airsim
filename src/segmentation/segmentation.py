@@ -152,7 +152,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        print(f"loss is {loss}")
+        print(f"loss is {loss.mean()}")
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
