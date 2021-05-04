@@ -140,7 +140,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         y = sample_batched['mask']
         # Compute prediction and loss
         pred = model(X)
-        y = y
+        y = y.to(device)
         # print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
         loss = loss_fn(pred, y)
         train_loss += loss
@@ -152,7 +152,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+        print(f"loss is {loss}")
         if i_batch % 100 == 0:
             loss, current = loss.item(), i_batch * len(X)
             print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
@@ -185,7 +185,7 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict, batch_size
             X = sample_batched['image']
             y = sample_batched['mask']
             pred = model(X)
-            # y = y.to(device)
+            y = y.to(device)
 
             validation_loss.append(loss_fn(pred, y).item())
             correct.append((pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2]))
