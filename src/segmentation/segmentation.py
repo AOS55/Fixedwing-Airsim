@@ -185,7 +185,7 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict, batch_size
             X = sample_batched['image']
             y = sample_batched['mask']
             pred = model(X)
-            y = y.to(device)
+            # y = y.to(device)
 
             validation_loss.append(loss_fn(pred, y).item())
             correct.append((pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2]))
@@ -207,8 +207,8 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict, batch_size
     # jarrard_mean = get_sample_mean(jaccard_loss)
     print(f"Validation Error: \n Accuracy: {(100 * correct_mean / batch_size):>0.1f}% Avg loss: "
           f"{validation_mean / batch_size:>8f} \n")
-    writer.add_scalar("val/avg accuracy", correct_mean, epoch)
-    writer.add_scalar("val/avg loss", validation_mean, epoch)
+    writer.add_scalar("val/avg accuracy", correct_mean / batch_size, epoch)
+    writer.add_scalar("val/avg loss", validation_mean / batch_size, epoch)
     # writer.add_scalar("val/avg IoU", jarrard_mean, epoch)
     # TODO: Jacquard-loss is doing something weird, IoU doesn't look correct
     return validation_mean
