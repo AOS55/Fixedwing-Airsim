@@ -140,7 +140,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch) -> None:
         y = sample_batched['mask']
         # Compute prediction and loss
         pred = model(X)
-        y = y.to(device)
+        y = y
         # print(f"X.shape: {X.shape}, y.shape:{y.shape}, pred.shape:{pred.shape}")
         loss = loss_fn(pred, y)
         train_loss += loss
