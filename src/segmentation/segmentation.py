@@ -191,8 +191,8 @@ def validation_loop(dataloader, model, loss_fn, epoch, rgb_map: dict, batch_size
             correct.append((pred.argmax(1) == y).type(torch.float).sum().item() / (y.shape[1] * y.shape[2]))
             # jaccard_loss.append(smp.utils.functional.iou(pred, y).item())
 
-            writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
-                                 / (y.shape[1] * y.shape[2]), i_batch)
+            # writer.add_histogram("accuracy-distribution/train", (pred.argmax(1) == y).type(torch.float).sum().item()
+            #                      / (y.shape[1] * y.shape[2]), i_batch)
 
             if i_batch % 20 == 1:
                 pred_fig = tensor_to_image(pred, rgb_map, True)
