@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!--
+  File:     electric800W.xml
+  Author:   Alexander Quessy
+-->
+<electric_engine name="electric">
+ <!-- This is a basic model of the electric motor used to power the x8
+ -->
+ <power unit="WATTS">  8.0 </power>
+</electric_engine>
