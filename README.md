@@ -6,6 +6,8 @@ Combines JSBSim and Airsim within a python module to simulate a fixedwing aircra
 - [Install Airsim](https://github.com/microsoft/AirSim)
 - [Install JSBSim](https://github.com/JSBSim-Team/jsbsim)
 - Clone this repository onto your system
+- Move the x8 dir into your JSBSim aircraft dir
+- Move the electric800w.xml file into the x8 dir into the engine dir
 
 ## Usage
 
